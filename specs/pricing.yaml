@@ -1,0 +1,14 @@
+schema_version: 1
+# USD per 1M tokens — API equivalent estimator (NOT subscription billing)
+currency: USD
+models:
+  claude-sonnet-5-5:
+    input_per_mtok: 3.00
+    cache_write_per_mtok: 3.75
+    cache_read_per_mtok: 0.30
+    output_per_mtok: 15.00
+  claude-haiku-5-5:
+    input_per_mtok: 1.00
+    cache_write_per_mtok: 1.25
+    cache_read_per_mtok: 0.10
+    output_per_mtok: 5.00

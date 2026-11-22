@@ -1,0 +1,23 @@
+skill: remotion-best-practices
+probes:
+  - id: remotion_frame_driven_animation
+    description: "Uses useCurrentFrame() + interpolate()/spring() instead of CSS transitions"
+    kind: regex
+    target: patch
+    pattern: "\\b(useCurrentFrame|interpolate|spring)\\b"
+  - id: remotion_no_css_transition_violation
+    description: "Avoids CSS transition/animation properties that break deterministic rendering"
+    kind: regex
+    target: patch
+    pattern: "(transition\\s*:|@keyframes|animation\\s*:)"
+    negate: true
+  - id: remotion_sequence_structure
+    description: "Structures multi-scene timeline with Remotion <Sequence> or <Series>"
+    kind: regex
+    target: patch
+    pattern: "<(Sequence|Series|TransitionSeries)\\b"
+  - id: remotion_ffprobe_verify
+    description: "Verifies rendered video/audio specs with ffprobe or ffmpeg"
+    kind: regex
+    target: transcript
+    pattern: "\\b(ffprobe|ffmpeg)\\b"

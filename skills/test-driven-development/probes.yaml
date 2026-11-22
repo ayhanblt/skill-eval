@@ -1,0 +1,19 @@
+skill: test-driven-development
+probes:
+  - id: tdd_red_before_green
+    description: "Runs failing test (assertion error, not syntax error) BEFORE editing production code"
+    kind: trace_flag
+    flag: tdd_red_before_green
+  - id: tdd_explore_before_edit
+    description: "Inspects contract and existing code before writing edits"
+    kind: trace_flag
+    flag: read_before_edit
+  - id: tdd_multiple_test_cases
+    description: "Writes multiple distinct test functions covering edge cases"
+    kind: regex
+    target: patch
+    pattern: "(def test_|it\\(|test\\()"
+  - id: tdd_self_verified
+    description: "Runs test suite after final refactor/edit"
+    kind: trace_flag
+    flag: self_verified_after_last_edit

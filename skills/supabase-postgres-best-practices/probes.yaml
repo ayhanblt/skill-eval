@@ -1,0 +1,21 @@
+skill: supabase-postgres-best-practices
+probes:
+  - id: pg_explain_analyze_buffers
+    description: "Profiles queries using EXPLAIN (ANALYZE, BUFFERS)"
+    kind: regex
+    target: transcript
+    pattern: "EXPLAIN\\s*\\([^)]*BUFFERS"
+  - id: pg_composite_or_partial_index
+    description: "Designs targeted composite/partial/covering index (WHERE or INCLUDE)"
+    kind: regex
+    target: patch
+    pattern: "CREATE\\s+(UNIQUE\\s+)?INDEX.*(WHERE|INCLUDE)"
+  - id: pg_keyset_over_offset
+    description: "Avoids deep OFFSET pagination in favor of keyset/cursor filtering where applicable"
+    kind: regex
+    target: patch
+    pattern: "(WHERE.*>\\s*\\$|tuple|<\\s*\\$|keyset|cursor)"
+  - id: pg_self_verified
+    description: "Verifies query plan and outputs after last edit"
+    kind: trace_flag
+    flag: self_verified_after_last_edit

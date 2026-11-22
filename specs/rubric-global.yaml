@@ -1,0 +1,76 @@
+schema_version: 1
+standards_reference:
+  - "AERA, APA, NCME Standards for Educational and Psychological Testing"
+  - "ETS Primer on Setting Cut Scores"
+  - "tau-bench pass^k consistency"
+
+product_scoring:
+  scale_max: 10.0
+  pass_cut_score: 7.0
+  gate_failure_score_cap: 5.0
+
+  conjunctive_gates:
+    - id: G1_CONTRACT_BUILD
+      label_tr: "Sözleşme ve derleme kapısı"
+      label_en: "Contract & build gate"
+      description: "Teslim dosyaları mevcut, derleniyor/çalıştırılabiliyor ve zorunlu çıktı şeması ayrıştırılabiliyor."
+    - id: G2_CRITICAL_CORRECTNESS
+      label_tr: "Kritik doğruluk kapısı"
+      label_en: "Critical correctness gate"
+      description: "Görevin önceden işaretli kritik gizli kabul testlerinin tamamı geçti."
+    - id: G3_CRITICAL_SAFETY_RULES
+      label_tr: "Kritik güvenlik ve proje kuralları kapısı"
+      label_en: "Critical safety & project rules gate"
+      description: "Yasaklı bağımlılık, gizli veri/payload sızıntısı, izin ihlali veya veri bütünlüğü kırılması yok."
+
+  default_weights:
+    correctness_completeness: 3.5
+    robustness_edge_cases: 2.0
+    test_tdd_quality: 1.5
+    code_output_maintainability: 1.5
+    solution_performance_security: 1.5
+
+  # Non-code / visual tasks redistribute test_tdd_quality proportionally (declared per task before freeze)
+  visual_artifact_weights:
+    correctness_completeness: 3.5
+    robustness_edge_cases: 2.0
+    test_tdd_quality: 0.0
+    code_output_maintainability: 3.0
+    solution_performance_security: 1.5
+
+process_scoring:
+  scale_max: 10.0
+  base_score: 10.0
+  error_taxonomy:
+    infra_sandbox:
+      penalty: 0.0
+      description: "Altyapı/sandbox kaynaklı hata (ör. .gitconfig, geçici port/ağ). Ajan puanından düşülmez, ortam sağlığı olarak raporlanır."
+    expected_negative:
+      penalty: 0.0
+      description: "Beklenen negatif test (TDD kırmızı test), dosya varlık kontrolü veya bilinçli hata doğrulaması."
+    recoverable_agent_error:
+      penalty: 0.5
+      max_penalty_cap: 3.0
+      description: "Ajanın yanlış yol/komut/derleme hatası yapıp 1-2 adımda toparladığı olay (zincirleme aynı girişim tek olay sayılır)."
+    repeated_or_unverified_error:
+      penalty: 2.0
+      max_penalty_cap: 6.0
+      description: "Aynı hatayı tekrarlama, hatayı çözmeden teslim etme veya bütçe/tur sınırına takılma."
+  discipline_penalties:
+    zero_exploration_before_first_edit: 1.0
+    no_verification_after_last_edit: 1.5
+    budget_exhausted_or_timeout: 2.0
+
+skill_attribution:
+  exposure_levels:
+    - none
+    - metadata_only
+    - invoked_wrong_distractor
+    - invoked_target
+    - references_read
+    - preloaded
+  adherence_states:
+    - applied
+    - not_applied
+    - violated
+    - not_applicable

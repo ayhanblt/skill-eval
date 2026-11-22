@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "skills": {
+    "xlsx": {
+      "source": "https://github.com/anthropics/skills.git",
+      "commit": "e4bb5d960d87126ff3b3a8af1a104b7db67560ba",
+      "path": "skills/xlsx"
+    },
+    "frontend-design": {
+      "source": "https://github.com/anthropics/skills.git",
+      "commit": "e4bb5d960d87126ff3b3a8af1a104b7db67560ba",
+      "path": "skills/frontend-design"
+    },
+    "pdf": {
+      "source": "https://github.com/anthropics/skills.git",
+      "commit": "e4bb5d960d87126ff3b3a8af1a104b7db67560ba",
+      "path": "skills/pdf"
+    },
+    "remotion-best-practices": {
+      "source": "https://github.com/remotion-dev/skills.git",
+      "commit": "6f55706d1069e512430582ad86e4e57dc07afe1b",
+      "path": "skills/remotion-best-practices"
+    },
+    "systematic-debugging": {
+      "source": "https://github.com/obra/superpowers.git",
+      "commit": "22f0b463e7a5e579904dd6211a520321035526f7",
+      "path": "skills/systematic-debugging"
+    },
+    "test-driven-development": {
+      "source": "https://github.com/obra/superpowers.git",
+      "commit": "22f0b463e7a5e579904dd6211a520321035526f7",
+      "path": "skills/test-driven-development"
+    },
+    "supabase-postgres-best-practices": {
+      "source": "https://github.com/supabase/agent-skills.git",
+      "commit": "c9be0e931b7930f7d02126d04774d904c381e7d7",
+      "path": "skills/supabase-postgres-best-practices"
+    },
+    "playwright-cli": {
+      "source": "https://github.com/microsoft/playwright-cli.git",
+      "commit": "c872a33cec77fa03c28fa7c6d1ad99d15d04ce42",
+      "path": "skills/playwright-cli"
+    },
+    "acme-event-contract": {
+      "source": "local/custom",
+      "commit": "in-repo",
+      "path": "skills/acme-event-contract"
+    },
+    "acme-release-pipeline": {
+      "source": "local/custom",
+      "commit": "in-repo",
+      "path": "skills/acme-release-pipeline"
+    }
+  }
+}

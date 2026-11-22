@@ -1,0 +1,22 @@
+skill: acme-release-pipeline
+probes:
+  - id: acme_bundle_format
+    description: "Produces release-manifest.json with bundle_format='acme-rel-1'"
+    kind: regex
+    target: both
+    pattern: "acme-rel-1"
+  - id: acme_reversible_migrations
+    description: "Validates matching .up.sql and .down.sql migration round-trip"
+    kind: regex
+    target: both
+    pattern: "down_sha256|\\.down\\.sql"
+  - id: acme_manifest_checksum_seal
+    description: "Generates and verifies MANIFEST.sha256"
+    kind: regex
+    target: both
+    pattern: "MANIFEST\\.sha256"
+  - id: acme_rollback_verified_flag
+    description: "Sets rollback_verified: true only after executing rollback check"
+    kind: regex
+    target: both
+    pattern: "rollback_verified"

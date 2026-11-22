@@ -1,0 +1,12 @@
+skill: pdf
+probes:
+  - id: pdf_pypdf_or_pdfplumber
+    description: "Uses pypdf/pdfplumber/pypdfium2 programmatically"
+    kind: regex
+    target: both
+    pattern: "\\b(pypdf|pdfplumber|pypdfium2)\\b"
+  - id: pdf_visual_render_check
+    description: "Renders output PDF pages to images for visual verification"
+    kind: regex
+    target: transcript
+    pattern: "\\b(pdftoppm|pypdfium2|pdf2image)\\b"

@@ -1,0 +1,19 @@
+skill: systematic-debugging
+probes:
+  - id: debug_explore_before_edit
+    description: "Reads and investigates codebase before making first production edit"
+    kind: trace_flag
+    flag: read_before_edit
+  - id: debug_reproduce_red_first
+    description: "Reproduces the failing behavior via failing test/assertion before patching production code"
+    kind: trace_flag
+    flag: tdd_red_before_green
+  - id: debug_root_cause_documented
+    description: "Explicitly documents root cause trace rather than symptom patching"
+    kind: regex
+    target: both
+    pattern: "(root cause|kök neden|reproduc|hypothesis)"
+  - id: debug_self_verified
+    description: "Verifies full test suite after final edit"
+    kind: trace_flag
+    flag: self_verified_after_last_edit

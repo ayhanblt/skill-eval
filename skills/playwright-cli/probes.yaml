@@ -1,0 +1,13 @@
+skill: playwright-cli
+probes:
+  - id: pw_no_arbitrary_sleep
+    description: "Avoids brittle waitForTimeout sleeps in browser automation"
+    kind: regex
+    target: patch
+    pattern: "waitForTimeout\\s*\\("
+    negate: true
+  - id: pw_role_locators
+    description: "Prefers resilient role/label/test-id locators"
+    kind: regex
+    target: patch
+    pattern: "getBy(Role|Label|TestId|Text)"

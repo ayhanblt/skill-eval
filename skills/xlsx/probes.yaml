@@ -1,0 +1,21 @@
+skill: xlsx
+probes:
+  - id: xlsx_dynamic_formulas
+    description: "Uses live Excel formulas (=SUM, =IF, etc.) instead of hardcoding calculated values"
+    kind: regex
+    target: both
+    pattern: "=(SUM|AVERAGE|IF|INDEX|MATCH|SUMIF|VLOOKUP|XLOOKUP)\\("
+  - id: xlsx_libreoffice_recalc
+    description: "Recalculates and validates formulas via LibreOffice / soffice headless"
+    kind: regex
+    target: transcript
+    pattern: "\\b(soffice|libreoffice)\\b.*--convert-to"
+  - id: xlsx_visual_inspection
+    description: "Converts workbook to PDF/PNG to inspect layout and column truncation visually"
+    kind: regex
+    target: transcript
+    pattern: "\\b(pdftoppm|pypdfium2|pdf2image|convert-to\\s+pdf)\\b"
+  - id: xlsx_self_verified
+    description: "Ran verification after last edit"
+    kind: trace_flag
+    flag: self_verified_after_last_edit

@@ -1,0 +1,124 @@
+schema_version: 1
+
+studies:
+  calibration-v1:
+    title: "Aşama 0 — Tavan Etkisi Ön Kalibrasyonu (Sadece A Koşulu)"
+    seed: 20261201
+    phase: calibration
+    conditions: ["A"]
+    repetitions: 2
+    models:
+      - claude-sonnet-5-5
+      - claude-haiku-5-5
+    effort: medium
+    c2_ablation:
+      enabled: false
+      tasks: []
+      repetitions: 0
+
+  main-v1:
+    title: "Agent Skills Gerçekten İşe Yarıyor mu? — 216 Koşuluk Ana Deney"
+    seed: 20261205
+    phase: main
+    conditions: ["A", "B", "C1"]
+    repetitions: 4
+    models:
+      - claude-sonnet-5-5
+      - claude-haiku-5-5
+    effort: medium
+    c2_ablation:
+      enabled: true
+      tasks:
+        - G2-remotion-display
+        - G3-systematic-debugging
+        - G5-postgres-saas
+        - G7-acme-event-contract
+      repetitions: 3
+
+runtime:
+  claude_cli_version: "2.1.322"
+  docker_image: "skilleval-sandbox:latest"
+  auth_mode: "claude-subscription-oauth-volume"
+  auth_volume: "skilleval-claude-auth"
+  default_max_turns: 45
+  default_timeout_seconds: 900
+  distractor_count_per_task: 5
+
+judge:
+  provider: "typesafe-systemone"
+  model: "jev-1.14.0"
+  endpoint: "https://api.typesafe.ai/v1/systemone"
+  min_probability: 0.80
+  passes: 2
+  reverse_pass_two: true
+
+calibration_gate:
+  target_a_score_min: 3.5
+  target_a_score_max: 8.0
+  ceiling_reject_threshold: 9.0
+  jev_anchor_min_agreement: 1.0
+
+tasks:
+  - id: G1-xlsx-financial-model
+    archetype: tool_craft
+    target_skill: xlsx
+    title_tr: "Çok sekmeli finansal model ve formül/görsel bütünlüğü"
+    title_en: "Multi-sheet financial model with live formulas and visual audit"
+    visual_review: true
+    timeout_seconds: 900
+
+  - id: G2-remotion-display
+    archetype: tool_craft
+    target_skill: remotion-best-practices
+    title_tr: "Veri odaklı çok sahneli Remotion bilgilendirme videosu"
+    title_en: "Data-driven multi-scene Remotion video with audio & captions"
+    visual_review: true
+    timeout_seconds: 1200
+
+  - id: G3-systematic-debugging
+    archetype: workflow_discipline
+    target_skill: systematic-debugging
+    title_tr: "Çok modüllü, yanıltıcı belirtili servis hatasında kök neden izolasyonu"
+    title_en: "Root-cause isolation in a multi-module service with red herrings"
+    visual_review: false
+    timeout_seconds: 900
+
+  - id: G4-tdd-feature
+    archetype: workflow_discipline
+    target_skill: test-driven-development
+    title_tr: "Test-önce (TDD) disipliniyle çok kurallı fiyatlandırma motoru"
+    title_en: "Multi-rule pricing engine built strictly with Red-Green-Refactor TDD"
+    visual_review: false
+    timeout_seconds: 900
+
+  - id: G5-postgres-saas
+    archetype: production_engineering
+    target_skill: supabase-postgres-best-practices
+    title_tr: "5 tablolu SaaS PostgreSQL şemasında çoklu darboğaz optimizasyonu"
+    title_en: "Multi-bottleneck PostgreSQL optimization on a 5-table SaaS schema"
+    visual_review: false
+    timeout_seconds: 900
+
+  - id: G6-frontend-design
+    archetype: production_engineering
+    target_skill: frontend-design
+    title_tr: "Üretim kalitesinde tasarım, erişilebilirlik ve responsive ürün arayüzü"
+    title_en: "Production-grade UI design, accessibility, and responsive layout"
+    visual_review: true
+    timeout_seconds: 1200
+
+  - id: G7-acme-event-contract
+    archetype: proprietary_custom
+    target_skill: acme-event-contract
+    title_tr: "Dağınık kurumsal dokümanlardaki dahili olay sözleşmesi ve audit uyumu"
+    title_en: "Internal event contract & audit compliance from scattered repo docs"
+    visual_review: false
+    timeout_seconds: 900
+
+  - id: G8-acme-release-pipeline
+    archetype: proprietary_custom
+    target_skill: acme-release-pipeline
+    title_tr: "Projeye özgü çok adımlı sürüm, manifest imzalama ve geri alma SOP akışı"
+    title_en: "Project-specific multi-step release, manifest signing & rollback SOP"
+    visual_review: false
+    timeout_seconds: 900

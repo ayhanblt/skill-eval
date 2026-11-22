@@ -1,0 +1,114 @@
+schema_version: 1
+
+# Registry of all target skills and strictly domain-orthogonal distractor skills.
+# INVARIANT: `systematic-debugging` and `test-driven-development` MUST have
+# allow_as_distractor: false to prevent cross-skill spillover on coding tasks.
+skills:
+  xlsx:
+    domain: spreadsheet
+    source: "anthropics/skills/skills/xlsx"
+    allow_as_distractor: true
+
+  remotion-best-practices:
+    domain: video_motion
+    source: "remotion-dev/skills/skills/remotion-best-practices"
+    allow_as_distractor: true
+
+  systematic-debugging:
+    domain: discipline_debugging
+    source: "obra/superpowers/skills/systematic-debugging"
+    allow_as_distractor: false
+
+  test-driven-development:
+    domain: discipline_tdd
+    source: "obra/superpowers/skills/test-driven-development"
+    allow_as_distractor: false
+
+  supabase-postgres-best-practices:
+    domain: database_postgres
+    source: "supabase/agent-skills/skills/supabase-postgres-best-practices"
+    allow_as_distractor: true
+
+  frontend-design:
+    domain: ui_design
+    source: "anthropics/skills/skills/frontend-design"
+    allow_as_distractor: true
+
+  acme-event-contract:
+    domain: proprietary_events
+    source: "local/custom"
+    allow_as_distractor: true
+
+  acme-release-pipeline:
+    domain: proprietary_release
+    source: "local/custom"
+    allow_as_distractor: true
+
+  # Extra domain-orthogonal distractor-only skills (used to keep every task at 1 target + 5 distractors)
+  pdf:
+    domain: document_pdf
+    source: "anthropics/skills/skills/pdf"
+    allow_as_distractor: true
+
+  playwright-cli:
+    domain: browser_automation
+    source: "microsoft/playwright-cli/skills/playwright-cli"
+    allow_as_distractor: true
+
+# Explicit, pre-registered 5 orthogonal distractors per task (zero functional overlap!)
+task_distractors:
+  G1-xlsx-financial-model:
+    - remotion-best-practices
+    - supabase-postgres-best-practices
+    - frontend-design
+    - playwright-cli
+    - acme-release-pipeline
+
+  G2-remotion-display:
+    - xlsx
+    - supabase-postgres-best-practices
+    - pdf
+    - acme-event-contract
+    - acme-release-pipeline
+
+  G3-systematic-debugging:
+    - xlsx
+    - remotion-best-practices
+    - frontend-design
+    - pdf
+    - playwright-cli
+
+  G4-tdd-feature:
+    - xlsx
+    - remotion-best-practices
+    - frontend-design
+    - pdf
+    - supabase-postgres-best-practices
+
+  G5-postgres-saas:
+    - xlsx
+    - remotion-best-practices
+    - frontend-design
+    - pdf
+    - playwright-cli
+
+  G6-frontend-design:
+    - xlsx
+    - remotion-best-practices
+    - supabase-postgres-best-practices
+    - pdf
+    - acme-release-pipeline
+
+  G7-acme-event-contract:
+    - xlsx
+    - remotion-best-practices
+    - frontend-design
+    - pdf
+    - playwright-cli
+
+  G8-acme-release-pipeline:
+    - xlsx
+    - remotion-best-practices
+    - frontend-design
+    - pdf
+    - supabase-postgres-best-practices

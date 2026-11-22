@@ -1,0 +1,22 @@
+skill: acme-event-contract
+probes:
+  - id: acme_schema_v2
+    description: "Emits/persists schema_version='acme.v2'"
+    kind: regex
+    target: patch
+    pattern: "acme\\.v2"
+  - id: acme_idempotency_header
+    description: "Enforces X-Acme-Idempotency-Key and X-Acme-Replayed headers"
+    kind: regex
+    target: patch
+    pattern: "X-Acme-Idempotency-Key"
+  - id: acme_conflict_code
+    description: "Returns structured ACME_EVT_409_PAYLOAD_MISMATCH error code"
+    kind: regex
+    target: patch
+    pattern: "ACME_EVT_409_PAYLOAD_MISMATCH"
+  - id: acme_audit_payload_hash
+    description: "Records payload_sha256 in append-only audit log"
+    kind: regex
+    target: patch
+    pattern: "payload_sha256"

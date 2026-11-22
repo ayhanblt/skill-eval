@@ -1,0 +1,22 @@
+skill: frontend-design
+probes:
+  - id: fe_css_custom_properties
+    description: "Defines coherent design tokens using CSS custom properties (--*)"
+    kind: regex
+    target: patch
+    pattern: ":root\\s*\\{[^}]*--[a-z0-9-]+"
+  - id: fe_no_generic_font_stack_only
+    description: "Specifies intentional typography rather than defaulting purely to generic Inter/Arial"
+    kind: regex
+    target: patch
+    pattern: "font-family\\s*:"
+  - id: fe_responsive_breakpoints
+    description: "Implements responsive layout media/container queries"
+    kind: regex
+    target: patch
+    pattern: "@(media|container)\\s*\\("
+  - id: fe_semantic_a11y
+    description: "Uses semantic landmarks and ARIA attributes"
+    kind: regex
+    target: patch
+    pattern: "(aria-[a-z-]+|<main\\b|<nav\\b|<header\\b|focus-visible)"
