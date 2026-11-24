@@ -221,7 +221,7 @@ class JudgeItemResult(BaseModel):
     question: str
     value: Literal["pass", "partial", "fail"] | None = None
     score_fraction: float | None = None  # pass=1.0, partial=0.5, fail=0.0
-    source: Literal["jev", "human_blind"] | None = None
+    source: Literal["jev", "jev_prob", "human_blind"] | None = None
     needs_human_review: bool = False
     passes: list[JudgePassAnswer] = Field(default_factory=list)
     human_note: str | None = None

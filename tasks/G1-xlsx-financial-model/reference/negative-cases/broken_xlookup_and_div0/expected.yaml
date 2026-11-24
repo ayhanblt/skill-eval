@@ -1,0 +1,5 @@
+must_fail_gates:
+  - G2_CRITICAL_CORRECTNESS
+  - G3_CRITICAL_SAFETY_RULES
+max_product_score: 5.0
+note: "Uses bare XLOOKUP (fails LibreOffice), unguarded division by zero, and leaves cached formula values uncomputed."

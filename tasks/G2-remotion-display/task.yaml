@@ -1,0 +1,46 @@
+task_id: G2-remotion-display
+archetype: tool_craft
+target_skill: remotion-best-practices
+visual_review: true
+
+jev_items:
+  - id: g2_frame_driven_motion
+    dimension: code_output_maintainability
+    binary: true
+    question: "Are visual animations driven by Remotion's useCurrentFrame() with interpolate()/spring(), using Easing.bezier or Easing.spring and individual CSS transform properties (translate/scale/rotate) rather than CSS transitions/keyframes or transform string interpolation?"
+    pass_criteria: "Visual components animate via useCurrentFrame() with interpolate()/spring() (utilizing Easing.bezier or Easing.spring), use individual CSS properties (translate, scale, or rotate) instead of CSS transform: strings, and contain zero CSS transition:/@keyframes/animation: declarations (audio volume fades and pure opacity/width reveals need not specify easing/transforms)."
+    fail_criteria: "Uses CSS transition:/@keyframes/animation:, OR uses CSS transform: string interpolation instead of translate/scale/rotate, OR omits both Easing.bezier and Easing.spring across all scene animations."
+
+  - id: g2_scene_sequencing
+    dimension: code_output_maintainability
+    binary: true
+    question: "Is the timeline decomposed into 4 sequential scenes using <Series> or <Sequence> timed from sceneDurationsSec and fps, with useCurrentFrame() kept out of the top-level MetricStory composition component?"
+    pass_criteria: "Top-level composition sequences 4 distinct scenes via <Series> or <Sequence> timed from props.sceneDurationsSec and fps, and delegates useCurrentFrame() to leaf scene/overlay components rather than calling useCurrentFrame() inside the top-level MetricStory container."
+    fail_criteria: "Collapses all scenes into one unsequenced component, ignores sceneDurationsSec, OR calls useCurrentFrame() directly inside the top-level MetricStory container."
+
+  - id: g2_zod_parameterized_props
+    dimension: code_output_maintainability
+    binary: true
+    question: "Does Root.tsx register MetricStory with a Zod schema using zColor() from @remotion/zod-types and calculateMetadata computing durationInFrames from sceneDurationsSec while scenes render from props?"
+    pass_criteria: "Zod schema uses zColor() from @remotion/zod-types for accentColor/backgroundColor, <Composition id=\"MetricStory\" ... /> receives schema={...} and calculateMetadata computing durationInFrames from sceneDurationsSec, and scene components read text/colors/data from props (defaultProps fallback in Root.tsx is normal)."
+    fail_criteria: "Omits zColor() from @remotion/zod-types, omits calculateMetadata or schema on MetricStory, or hardcodes static scene text/colors ignoring props."
+
+  - id: g2_audio_and_captions_sync
+    dimension: code_output_maintainability
+    binary: true
+    question: "Does the composition import Audio from @remotion/media with staticFile('narration.wav'), a keyframed fade-in/out volume envelope, and captions synchronized via startMs/endMs?"
+    pass_criteria: "Imports Audio from @remotion/media, passes src={staticFile('narration.wav')} with a frame-interpolated volume={...} fade-in/out prop, and filters captions dynamically using startMs/endMs."
+    fail_criteria: "Imports Audio from legacy 'remotion' instead of @remotion/media, omits keyframed volume fade-in/out, omits staticFile('narration.wav'), or renders non-synchronized captions."
+
+  - id: g2_modular_video_architecture
+    dimension: code_output_maintainability
+    binary: true
+    question: "Are schema, scene components, audio wrapper, and caption overlay separated cleanly into modules with zero external network URLs?"
+    pass_criteria: "Code is cleanly organized into separate schema, scene, audio, and caption modules with zero http:// or https:// asset/font fetches."
+    fail_criteria: "Dumps everything into one monolithic file without module separation OR fetches external http(s) media or font URLs."
+
+visual_items:
+  - id: g2_visual_hierarchy_readability
+    question: "Are the title, KPI cards, bar chart, and synchronized caption bar sharp, balanced, and readable at 1280x720 with zero text clipping or overlap?"
+  - id: g2_visual_theme_adaptation
+    question: "Do both Dataset A and Dataset B frames cleanly adapt backgroundColor, accentColor, dynamic bar counts, and captions?"

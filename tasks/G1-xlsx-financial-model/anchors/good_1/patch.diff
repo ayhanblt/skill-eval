@@ -1,0 +1,46 @@
+diff --git a/build_model.py b/build_model.py
+new file mode 100644
+--- /dev/null
++++ b/build_model.py
+@@ -0,0 +1,52 @@
++from openpyxl import Workbook
++from openpyxl.chart import LineChart, Reference
++from openpyxl.styles import Font
++
++BLUE_INPUT = Font(name="Arial", size=10, color="0000FF")
++BLACK_FORMULA = Font(name="Arial", size=10, color="000000")
++GREEN_LINK = Font(name="Arial", size=10, color="008000")
++
++def build(ws_in, ws_as, ws_cf, ws_sum):
++    ws_in["B4"] = "Base"
++    ws_in["B4"].font = BLUE_INPUT
++    ws_in["C4"] = "Source: baseline_inputs.json active scenario"
++    ws_as["A2"] = "Source: Executive operating scenarios defined in data/baseline_inputs.json"
++    ws_as["E5"] = "Baseline operating plan (1.0x multipliers)"
++    ws_as["E6"] = "Upside plan: +25% new cust, -15% churn, +5% ARPU"
++    ws_as["E7"] = "Downside plan: -30% new cust, +35% churn, -5% ARPU"
++    ws_as["B11"] = "=Inputs!$B$4"
++    ws_as["B11"].font = GREEN_LINK
++    ws_as["B12"] = "=INDEX($B$5:$B$7,MATCH($B$11,$A$5:$A$7,0))"
++    ws_as["B12"].font = BLACK_FORMULA
++    ws_cf["B13"] = "=IF(B9=0,0,B12/B9)"
++    ws_cf["B13"].font = BLACK_FORMULA
++    ws_cf["B13"].number_format = "0.0%"
++    ws_sum["B4"] = "='Cash Flow 12M'!N9"
++    ws_sum["B4"].number_format = '$#,##0;($#,##0);"-"'
++    ws_sum["B4"].font = GREEN_LINK
++    ws_sum["B6"] = "=IF(B4=0,0,B5/B4)"
++    ws_sum["B6"].font = BLACK_FORMULA
++    ws_sum["B6"].number_format = "0.0%"
++    chart = LineChart()
++    chart.title = "Monthly Revenue & Ending Cash Trajectory"
++    chart.roundedCorners = False
++    chart.title.overlay = False
++    chart.legend.overlay = False
++    chart.x_axis.delete = False
++    chart.y_axis.delete = False
++    data_ref = Reference(ws_sum, min_col=2, min_row=16, max_col=3, max_row=28)
++    cats_ref = Reference(ws_sum, min_col=1, min_row=17, max_row=28)
++    chart.add_data(data_ref, titles_from_data=True)
++    chart.set_categories(cats_ref)
++    ws_sum.add_chart(chart, "E4")

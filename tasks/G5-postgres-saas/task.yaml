@@ -1,0 +1,42 @@
+task_id: G5-postgres-saas
+archetype: production_engineering
+target_skill: supabase-postgres-best-practices
+visual_review: false
+
+jev_items:
+  - id: g5_partial_composite_keyset_index
+    dimension: code_output_maintainability
+    binary: true
+    question: "Does sql/migrations/002_optimizations.sql create targeted covering/partial composite indexes (including INCLUDE columns on active tenant events, leading project_id on events, and pending jobs) within the <= 6 index budget?"
+    pass_criteria: "002_optimizations.sql defines <= 6 purposeful indexes including partial composite index(es) with INCLUDE columns for active tenant feed/keyset scans, leading project_id on events, and pending jobs."
+    fail_criteria: "002_optimizations.sql creates > 6 shotgun indexes, omits INCLUDE covering columns or partial/composite indexes, or omits a leading project_id index on events."
+
+  - id: g5_keyset_pagination_query
+    dimension: code_output_maintainability
+    binary: true
+    question: "Does app/queries.py replace OFFSET pagination with tuple/keyset cursor comparison ((created_at, id) < (%s, %s))?"
+    pass_criteria: "list_active_events_page executes keyset comparison (created_at, id) < (%s, %s) ordered by created_at DESC, id DESC without emitting OFFSET in SQL."
+    fail_criteria: "list_active_events_page still uses OFFSET pagination or omits keyset tuple comparison."
+
+  - id: g5_n_plus_one_left_join
+    dimension: code_output_maintainability
+    binary: true
+    question: "Does app/queries.py eliminate the N+1 loop via LEFT JOIN preserving zero-event projects AND batch bulk_insert_events into <= 2 queries?"
+    pass_criteria: "get_tenant_project_summaries runs a single LEFT JOIN query keeping zero-event projects, AND bulk_insert_events inserts batches in a single multi-row/COPY query without per-row INSERT loops."
+    fail_criteria: "get_tenant_project_summaries uses N+1 queries or INNER JOIN dropping zero-event projects, OR bulk_insert_events loops row-by-row."
+
+  - id: g5_skip_locked_and_rls_initplan
+    dimension: code_output_maintainability
+    binary: true
+    question: "Does claim_next_job use atomic UPDATE ... FOR UPDATE SKIP LOCKED and does 002_optimizations.sql preserve RLS while wrapping current_setting() in (SELECT ...)?"
+    pass_criteria: "claim_next_job uses FOR UPDATE SKIP LOCKED atomically, and RLS policies remain enabled while wrapping current_setting(...) in (SELECT current_setting(...)) for initPlan caching."
+    fail_criteria: "SKIP LOCKED is omitted, RLS is disabled/dropped, or current_setting() remains unwrapped per row."
+
+  - id: g5_explain_analyze_buffers_report
+    dimension: code_output_maintainability
+    binary: true
+    question: "Does PERFORMANCE_REPORT.md document concrete before/after EXPLAIN (ANALYZE, BUFFERS) measurements, Index Only Scan / heap fetches, and write-overhead rationale?"
+    pass_criteria: "PERFORMANCE_REPORT.md contains concrete EXPLAIN (ANALYZE, BUFFERS) before/after evidence (shared buffers, scan type/heap fetches, timing) plus index write budget rationale."
+    fail_criteria: "PERFORMANCE_REPORT.md is missing or omits concrete EXPLAIN (ANALYZE, BUFFERS) output."
+
+visual_items: []

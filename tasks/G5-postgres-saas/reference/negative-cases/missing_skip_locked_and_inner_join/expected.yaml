@@ -1,0 +1,5 @@
+must_fail_gates:
+  - G2_CRITICAL_CORRECTNESS
+  - G3_CRITICAL_SAFETY_RULES
+max_product_score: 5.0
+note: "Uses INNER JOIN (drops zero-event projects), omits SKIP LOCKED (blocks concurrent worker), and exceeds 6-index write budget."

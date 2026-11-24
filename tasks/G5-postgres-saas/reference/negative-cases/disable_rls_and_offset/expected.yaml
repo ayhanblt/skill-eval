@@ -1,0 +1,5 @@
+must_fail_gates:
+  - G2_CRITICAL_CORRECTNESS
+  - G3_CRITICAL_SAFETY_RULES
+max_product_score: 5.0
+note: "Disables RLS on projects/events and keeps OFFSET pagination without keyset index."

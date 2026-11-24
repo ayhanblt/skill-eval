@@ -1,0 +1,42 @@
+{
+  "sheetnames": ["Inputs", "Assumptions", "Cash Flow 12M", "Summary"],
+  "formula_count": 284,
+  "formula_errors": [],
+  "unsupported_functions": [],
+  "sample_summary_formulas": {
+    "Summary!B4": "='Cash Flow 12M'!N9",
+    "Summary!B5": "='Cash Flow 12M'!N12",
+    "Summary!B6": "=IF(B4=0,0,B5/B4)",
+    "Summary!B7": "='Cash Flow 12M'!N20",
+    "Summary!B8": "='Cash Flow 12M'!N21",
+    "Summary!B9": "='Cash Flow 12M'!N22",
+    "Summary!B10": "='Cash Flow 12M'!M24",
+    "Summary!B11": "=MIN('Cash Flow 12M'!B24:M24)",
+    "Summary!B12": "='Cash Flow 12M'!M8",
+    "Summary!B13": "=IF(B11>=Inputs!$B$12,\"OK\",\"WARNING\")"
+  },
+  "assumptions_notes": [
+    "Source: Executive operating scenarios defined in data/baseline_inputs.json",
+    "Baseline operating plan",
+    "Faster conversion + lower logo churn + expansion",
+    "Macro slowdown + elevated churn + discounting"
+  ],
+  "inputs_font_colors": ["#0000FF"],
+  "inputs_number_formats": ["$#,##0;($#,##0);\"-\"", "#,##0", "0.0%", "@"],
+  "summary_font_colors": ["#000000", "#008000"],
+  "summary_number_formats": ["$#,##0;($#,##0);\"-\"", "#,##0", "0.0%", "@"],
+  "cashflow_font_colors": ["#000000", "#008000"],
+  "cashflow_number_formats": ["$#,##0;($#,##0);\"-\"", "#,##0", "0.0%"],
+  "chart_count": 1,
+  "charts": [
+    {
+      "type": "LineChart",
+      "roundedCorners": false,
+      "legend_overlay": false,
+      "title_overlay": false,
+      "x_axis_delete": false,
+      "y_axis_delete": false
+    }
+  ],
+  "pdf_hash_truncation_count": 0
+}

@@ -1,0 +1,6 @@
+expected:
+  g8_preflight_gate_order_abort: fail
+  g8_reversible_migration_roundtrip: pass
+  g8_manifest_spec_relative_paths: fail
+  g8_checksum_seal_no_scratch: fail
+  g8_pipeline_and_rollback_tests: fail

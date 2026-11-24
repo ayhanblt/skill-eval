@@ -16,6 +16,40 @@ studies:
       tasks: []
       repetitions: 0
 
+  calibration-v2:
+    title: "Aşama 0 (v2) — Zorlaştırılmış Görevler Tavan Kalibrasyonu (Sadece A Koşulu)"
+    seed: 20261202
+    phase: calibration
+    conditions: ["A"]
+    repetitions: 2
+    models:
+      - claude-sonnet-5-5
+      - claude-haiku-5-5
+    effort: medium
+    c2_ablation:
+      enabled: false
+      tasks: []
+      repetitions: 0
+
+  calibration-v3:
+    title: "Aşama 0 (v3) — Hedefli İnce Ayar Kalibrasyonu (Sadece G2/G3/G4, A Koşulu)"
+    seed: 20261203
+    phase: calibration
+    conditions: ["A"]
+    repetitions: 2
+    tasks:
+      - G2-remotion-display
+      - G3-systematic-debugging
+      - G4-tdd-feature
+    models:
+      - claude-sonnet-5-5
+      - claude-haiku-5-5
+    effort: medium
+    c2_ablation:
+      enabled: false
+      tasks: []
+      repetitions: 0
+
   main-v1:
     title: "Agent Skills Gerçekten İşe Yarıyor mu? — 216 Koşuluk Ana Deney"
     seed: 20261205
@@ -36,7 +70,7 @@ studies:
       repetitions: 3
 
 runtime:
-  claude_cli_version: "2.1.322"
+  claude_cli_version: "2.1.330"
   docker_image: "skilleval-sandbox:latest"
   auth_mode: "claude-subscription-oauth-volume"
   auth_volume: "skilleval-claude-auth"

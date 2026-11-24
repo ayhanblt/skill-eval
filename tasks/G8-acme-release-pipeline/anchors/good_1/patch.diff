@@ -1,0 +1,380 @@
+--- /dev/null
++++ b/migrations/002_add_settlement_index.down.sql
+@@ -0,0 +1 @@
++DROP INDEX IF EXISTS idx_ledger_settlement_ref;
+--- a/migrations/003_add_settlement_batches.down.sql
++++ b/migrations/003_add_settlement_batches.down.sql
+@@ -1 +1 @@
+-DROP TABLE settlement_batch;
++DROP TABLE settlement_batches;
+--- a/scripts/build_release.py
++++ b/scripts/build_release.py
+@@ -1,17 +1,197 @@
+ #!/usr/bin/env python3
+-"""Acme release packager & pre-flight verifier."""
++"""Acme 5-stage release packager & pre-flight verifier."""
+ 
+ from __future__ import annotations
+ 
+ import argparse
++import hashlib
++import json
++import os
++import shutil
++import sqlite3
++import subprocess
++import sys
++import tempfile
++from datetime import datetime, timezone
+ from pathlib import Path
++
++
++def _sha256_file(path: Path) -> str:
++    return hashlib.sha256(path.read_bytes()).hexdigest()
++
++
++def _verify_migrations_roundtrip(root: Path) -> list[dict[str, str]]:
++    mig_dir = root / "migrations"
++    ups = sorted(mig_dir.glob("*.up.sql"))
++    if not ups:
++        raise RuntimeError("No .up.sql migrations found")
++
++    entries: list[dict[str, str]] = []
++    downs_in_order: list[Path] = []
++    for up_path in ups:
++        stem = up_path.name[: -len(".up.sql")]
++        down_path = mig_dir / f"{stem}.down.sql"
++        if not down_path.is_file():
++            raise RuntimeError(f"Missing matching down migration: {down_path.name}")
++        downs_in_order.append(down_path)
++        entries.append(
++            {
++                "name": stem,
++                "up": f"migrations/{up_path.name}",
++                "down": f"migrations/{down_path.name}",
++                "up_sha256": _sha256_file(up_path),
++                "down_sha256": _sha256_file(down_path),
++            }
++        )
++
++    with tempfile.TemporaryDirectory(prefix="acme-mig-") as tmp:
++        conn = sqlite3.connect(Path(tmp) / "preflight.db")
++        try:
++            for p in ups:
++                conn.executescript(p.read_text(encoding="utf-8"))
++            conn.execute(
++                "INSERT INTO ledger_entries (account_id, settlement_ref, amount_cents, created_at) "
++                "VALUES ('acct-1', 'settle-1', 1000, '2026-01-01T00:00:00Z')"
++            )
++            found = conn.execute(
++                "SELECT amount_cents FROM ledger_entries WHERE settlement_ref = 'settle-1'"
++            ).fetchall()
++            if found != [(1000,)]:
++                raise RuntimeError(f"Migration smoke query failed: {found}")
++            conn.execute(
++                "INSERT INTO settlement_batches (batch_id, status, created_at) "
++                "VALUES ('batch-1', 'open', '2026-01-01T00:00:00Z')"
++            )
++            batch_rows = conn.execute(
++                "SELECT status FROM settlement_batches WHERE batch_id = 'batch-1'"
++            ).fetchall()
++            if batch_rows != [("open",)]:
++                raise RuntimeError(f"Batch smoke query failed: {batch_rows}")
++
++            for p in reversed(downs_in_order):
++                conn.executescript(p.read_text(encoding="utf-8"))
++            leftover = conn.execute(
++                "SELECT name FROM sqlite_master WHERE type IN ('table', 'index') AND name NOT LIKE 'sqlite_%'"
++            ).fetchall()
++            if leftover:
++                raise RuntimeError(f"Rollback left objects behind: {leftover}")
++
++            for p in ups:
++                conn.executescript(p.read_text(encoding="utf-8"))
++        finally:
++            conn.close()
++    return entries
++
++
++def _run_tests(root: Path) -> None:
++    proc = subprocess.run(
++        [sys.executable, "-m", "pytest", "-q"],
++        cwd=str(root),
++        capture_output=True,
++        text=True,
++        check=False,
++    )
++    if proc.returncode != 0:
++        raise RuntimeError(f"Pre-flight pytest failed:\n{proc.stdout}\n{proc.stderr}")
++
++
++def _stage_artifacts(root: Path, bundle_dir: Path) -> list[dict[str, object]]:
++    if bundle_dir.exists():
++        shutil.rmtree(bundle_dir)
++    art_root = bundle_dir / "artifacts"
++    art_root.mkdir(parents=True, exist_ok=True)
++
++    shutil.copyfile(root / "VERSION", art_root / "VERSION")
++    shutil.copytree(
++        root / "service",
++        art_root / "service",
++        ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.tmp", "*.bak"),
++    )
++    shutil.copytree(
++        root / "migrations",
++        art_root / "migrations",
++        ignore=shutil.ignore_patterns("__pycache__", "*.tmp", "*.bak"),
++    )
++
++    records: list[dict[str, object]] = []
++    for p in sorted(art_root.rglob("*")):
++        if not p.is_file():
++            continue
++        rel = p.relative_to(bundle_dir).as_posix()
++        records.append(
++            {
++                "path": rel,
++                "sha256": _sha256_file(p),
++                "bytes": p.stat().st_size,
++            }
++        )
++    records.sort(key=lambda item: str(item["path"]))
++    for p in bundle_dir.rglob("*"):
++        if p.name.endswith((".tmp", ".bak", ".pyc")) or "__pycache__" in p.parts:
++            raise RuntimeError(f"Scratch artifact forbidden in bundle: {p}")
++    return records
++
++
++def build_release(root: Path, out_dir: Path | None = None) -> Path:
++    version = (root / "VERSION").read_text(encoding="utf-8").strip()
++    bundle_dir = out_dir or (root / "releases" / f"release-{version}")
++
++    # Stage 1: Migration pairing + SQLite up -> smoke -> down -> up round-trip
++    migrations = _verify_migrations_roundtrip(root)
++    # Stage 2: Full test suite
++    _run_tests(root)
++
++    git_env = {**os.environ, "GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_NOSYSTEM": "1"}
++    git_commit = subprocess.run(
++        ["git", "rev-parse", "HEAD"],
++        cwd=str(root),
++        env=git_env,
++        capture_output=True,
++        text=True,
++        check=True,
++    ).stdout.strip()
++
++    # Stage 3: Clean deterministic artifact staging
++    artifacts = _stage_artifacts(root, bundle_dir)
++
++    # Stage 4: Release manifest + MANIFEST.sha256 seal
++    manifest = {
++        "bundle_format": "acme-rel-1",
++        "version": version,
++        "git_commit": git_commit,
++        "built_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
++        "migrations": migrations,
++        "artifacts": artifacts,
++        "rollback_verified": True,
++    }
++    manifest_path = bundle_dir / "release-manifest.json"
++    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
++
++    seal_path = bundle_dir / "MANIFEST.sha256"
++    seal_path.write_text(f"{_sha256_file(manifest_path)}  release-manifest.json\n", encoding="utf-8")
++
++    # Stage 5: Final checksum verification
++    chk = subprocess.run(
++        ["sha256sum", "-c", "MANIFEST.sha256"],
++        cwd=str(bundle_dir),
++        capture_output=True,
++        text=True,
++        check=False,
++    )
++    if chk.returncode != 0:
++        raise RuntimeError(f"Checksum verification failed: {chk.stderr}")
++    return bundle_dir
+ 
+ 
+ def main() -> int:
+     parser = argparse.ArgumentParser(description="Build and seal an Acme release bundle")
+     parser.add_argument("--out", default=None, help="Output bundle directory")
+-    _args = parser.parse_args()
+-    raise NotImplementedError("Implement 5-stage release pipeline according to docs/")
++    args = parser.parse_args()
++    root = Path(__file__).resolve().parent.parent
++    out_dir = Path(args.out) if args.out else None
++    bundle = build_release(root, out_dir)
++    print(f"Built verified release bundle: {bundle}")
++    return 0
+ 
+ 
+ if __name__ == "__main__":
+--- /dev/null
++++ b/tests/test_release_pipeline.py
+@@ -0,0 +1,81 @@
++import json
++import os
++import shutil
++import subprocess
++import sys
++from pathlib import Path
++
++
++def _stage_temp_repo(src: Path, dst: Path) -> None:
++    shutil.copytree(src, dst, ignore=shutil.ignore_patterns("__pycache__", "releases", ".git"))
++    # Exclude pipeline recursion test from nested repo copy so build_release runs service tests cleanly
++    for p in list((dst / "tests").glob("test_release_*.py")):
++        p.unlink()
++    env = {
++        **os.environ,
++        "GIT_CONFIG_GLOBAL": "/dev/null",
++        "GIT_CONFIG_NOSYSTEM": "1",
++        "GIT_AUTHOR_NAME": "test",
++        "GIT_AUTHOR_EMAIL": "test@local",
++        "GIT_COMMITTER_NAME": "test",
++        "GIT_COMMITTER_EMAIL": "test@local",
++    }
++    subprocess.run(["git", "init", "-q"], cwd=str(dst), env=env, check=True)
++    subprocess.run(["git", "add", "-A"], cwd=str(dst), env=env, check=True)
++    subprocess.run(["git", "commit", "-q", "-m", "init"], cwd=str(dst), env=env, check=True)
++
++
++def test_release_pipeline_builds_verified_bundle(tmp_path: Path) -> None:
++    root = Path(__file__).resolve().parent.parent
++    repo = tmp_path / "repo_ok"
++    _stage_temp_repo(root, repo)
++    out = tmp_path / "bundle"
++    proc = subprocess.run(
++        [sys.executable, str(repo / "scripts" / "build_release.py"), "--out", str(out)],
++        cwd=str(repo),
++        capture_output=True,
++        text=True,
++        check=False,
++    )
++    assert proc.returncode == 0, proc.stderr
++    manifest = json.loads((out / "release-manifest.json").read_text(encoding="utf-8"))
++    assert manifest["bundle_format"] == "acme-rel-1"
++    assert manifest["rollback_verified"] is True
++    assert manifest["built_at_utc"].endswith("Z")
++    assert "  release-manifest.json\n" in (out / "MANIFEST.sha256").read_text(encoding="utf-8")
++
++
++def test_pipeline_aborts_before_manifest_when_down_migration_missing(tmp_path: Path) -> None:
++    root = Path(__file__).resolve().parent.parent
++    copy_ws = tmp_path / "repo_bad"
++    _stage_temp_repo(root, copy_ws)
++    (copy_ws / "migrations" / "002_add_settlement_index.down.sql").unlink()
++    out = tmp_path / "aborted_bundle"
++    proc = subprocess.run(
++        [sys.executable, str(copy_ws / "scripts" / "build_release.py"), "--out", str(out)],
++        cwd=str(copy_ws),
++        capture_output=True,
++        text=True,
++        check=False,
++    )
++    assert proc.returncode != 0
++    assert not (out / "release-manifest.json").exists()
++
++
++def test_pipeline_aborts_when_down_migration_sql_fails(tmp_path: Path) -> None:
++    root = Path(__file__).resolve().parent.parent
++    copy_ws = tmp_path / "repo_broken_down"
++    _stage_temp_repo(root, copy_ws)
++    (copy_ws / "migrations" / "003_add_settlement_batches.down.sql").write_text(
++        "DROP TABLE nonexistent_settlement_table;\n", encoding="utf-8"
++    )
++    out = tmp_path / "aborted_broken_down"
++    proc = subprocess.run(
++        [sys.executable, str(copy_ws / "scripts" / "build_release.py"), "--out", str(out)],
++        cwd=str(copy_ws),
++        capture_output=True,
++        text=True,
++        check=False,
++    )
++    assert proc.returncode != 0
++    assert not (out / "release-manifest.json").exists()
+--- /dev/null
++++ b/releases/release-1.4.0/release-manifest.json
+@@ -0,0 +1,77 @@
++{
++  "bundle_format": "acme-rel-1",
++  "version": "1.4.0",
++  "git_commit": "e2652a46af7ac4b8ab2db82f223026dbf525ffe8",
++  "built_at_utc": "2026-11-23T09:43:25Z",
++  "migrations": [
++    {
++      "name": "001_create_ledger",
++      "up": "migrations/001_create_ledger.up.sql",
++      "down": "migrations/001_create_ledger.down.sql",
++      "up_sha256": "2f4580cfa536eb7868cf9162e7974c17f87eb80f9461d1adcce6df707e5e7684",
++      "down_sha256": "ba9c8741965e29f1455e9d36cdd94e2d183efe3b1268f3e513a15a640b652487"
++    },
++    {
++      "name": "002_add_settlement_index",
++      "up": "migrations/002_add_settlement_index.up.sql",
++      "down": "migrations/002_add_settlement_index.down.sql",
++      "up_sha256": "5508ed17ab7506fa411ec1d1d3080cb04aa308b7c9c12fb67b6e6ecd1810690e",
++      "down_sha256": "464217d63bdee316757ee93a57f5ed41b455ee848b2cf67bcc6d7f6da1383024"
++    },
++    {
++      "name": "003_add_settlement_batches",
++      "up": "migrations/003_add_settlement_batches.up.sql",
++      "down": "migrations/003_add_settlement_batches.down.sql",
++      "up_sha256": "30b85153e9cdb29489c08c4bf4395db83b4bc13ffcfd7e814d9383d64bd11bac",
++      "down_sha256": "9b8cf0564b7ab804c66a45b7c6b99d89ed7d675b6e9c99cddc59e234d93ae03d"
++    }
++  ],
++  "artifacts": [
++    {
++      "path": "artifacts/VERSION",
++      "sha256": "78b591400c56b7b67b8cb3b2b8a8e65e9093897f02ce0878e6b5405c68620fa7",
++      "bytes": 6
++    },
++    {
++      "path": "artifacts/migrations/001_create_ledger.down.sql",
++      "sha256": "ba9c8741965e29f1455e9d36cdd94e2d183efe3b1268f3e513a15a640b652487",
++      "bytes": 37
++    },
++    {
++      "path": "artifacts/migrations/001_create_ledger.up.sql",
++      "sha256": "2f4580cfa536eb7868cf9162e7974c17f87eb80f9461d1adcce6df707e5e7684",
++      "bytes": 193
++    },
++    {
++      "path": "artifacts/migrations/002_add_settlement_index.down.sql",
++      "sha256": "464217d63bdee316757ee93a57f5ed41b455ee848b2cf67bcc6d7f6da1383024",
++      "bytes": 48
++    },
++    {
++      "path": "artifacts/migrations/002_add_settlement_index.up.sql",
++      "sha256": "5508ed17ab7506fa411ec1d1d3080cb04aa308b7c9c12fb67b6e6ecd1810690e",
++      "bytes": 74
++    },
++    {
++      "path": "artifacts/migrations/003_add_settlement_batches.down.sql",
++      "sha256": "9b8cf0564b7ab804c66a45b7c6b99d89ed7d675b6e9c99cddc59e234d93ae03d",
++      "bytes": 31
++    },
++    {
++      "path": "artifacts/migrations/003_add_settlement_batches.up.sql",
++      "sha256": "30b85153e9cdb29489c08c4bf4395db83b4bc13ffcfd7e814d9383d64bd11bac",
++      "bytes": 117
++    },
++    {
++      "path": "artifacts/service/__init__.py",
++      "sha256": "6778039c6a1fdc367c2bd8c5164bed3b19db94534c0a2ecf0667c2a105c50fb6",
++      "bytes": 78
++    },
++    {
++      "path": "artifacts/service/ledger.py",
++      "sha256": "7041e775154369c9aa77472e792b806f0712532ea596d3b2f2981f6297d701f2",
++      "bytes": 567
++    }
++  ],
++  "rollback_verified": true
++}
+--- /dev/null
++++ b/releases/release-1.4.0/MANIFEST.sha256
+@@ -0,0 +1 @@
++32bf70b8af41ccee7c400a8f71f7ea16e26740e81ae72c6518649295228850ca  release-manifest.json

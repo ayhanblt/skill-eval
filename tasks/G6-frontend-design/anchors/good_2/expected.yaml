@@ -1,0 +1,6 @@
+expected:
+  g6_anti_cliche_palette_and_chrome: pass
+  g6_typography_scale_and_measure: pass
+  g6_active_voice_and_clear_microcopy: pass
+  g6_responsive_focus_and_reduced_motion: pass
+  g6_xss_safe_dom_rendering: pass

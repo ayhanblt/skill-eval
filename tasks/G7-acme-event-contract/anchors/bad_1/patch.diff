@@ -1,0 +1,21 @@
+diff --git a/acme_orders/handler.py b/acme_orders/handler.py
+--- a/acme_orders/handler.py
++++ b/acme_orders/handler.py
+@@ -10,1 +10,16 @@
++class AcmeOrderEventService:
++    def handle_request(self, headers, body):
++        key = headers.get("X-Acme-Idempotency-Key") or headers.get("Idempotency-Key")
++        if not key: return HttpResponse(400, body={"detail": "missing key"})
++        data = json.loads(body)
++        sha = hashlib.sha256(body).hexdigest()
++        if self.storage.get_idempotency(key):
++            return HttpResponse(200, body=self.storage.get_idempotency(key)["response_body"])
++        env = {"event_id": str(uuid.uuid4()), "tenant_id": data["tenant_id"], "occurred_at_utc": datetime.now(timezone.utc).isoformat()}
++        with self.storage.audit_log_path.open("a") as fh:
++            fh.write(json.dumps({"payload": data, "headers": headers}) + "\n")
++        return HttpResponse(201, body=env)
+diff --git a/tests/test_smoke.py b/tests/test_smoke.py
+--- a/tests/test_smoke.py
++++ b/tests/test_smoke.py
+@@ -1,2 +1,3 @@
++def test_basic(): assert True

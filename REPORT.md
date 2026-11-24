@@ -1,19 +1,38 @@
-# Do Agent Skills Really Help? — Experimental Evaluation Report
+# Do Agent Skills Really Help? (`main-v1`)
 
-> **Status:** Study scaffolding in progress. Once the main study (`main-v1`, 216 runs) completes, this file will be generated automatically via `uv run skilleval report --study main-v1`.
->
-> - **Turkish Report:** [RAPOR.md](RAPOR.md)
-> - **Design & Protocol:** [docs/DESIGN.md](docs/DESIGN.md) · [docs/PROTOCOL.md](docs/PROTOCOL.md)
-> - **Interactive HTML Report:** `reports/report.html` *(generated with the study report)*
+[Türkçe Rapor](RAPOR.md) · [Interactive HTML](reports/report.html) · [Design](docs/DESIGN.md)
 
-## Planned Study Overview
+## Summary by Condition
 
-| Component | Specification |
-|---|---|
-| Tasks | 8 deep tasks across 4 skill archetypes (Tool Craft, Workflow Discipline, Production Engineering, Proprietary/Docs-vs-Skill) |
-| Models | `claude-sonnet-5-5`, `claude-haiku-5-5` (`effort: medium`) |
-| Conditions | `A` (no-skill control), `B` (6 orthogonal skills — passive discovery), `C1` (explicit on-demand invocation), `C2` (4-task always-on system preload ablation) |
-| Pre-Freeze Calibration | 32 A-only runs (ceiling-effect gate: target A score 4.0–7.5/10) + Jev anchor calibration |
-| Main Matrix | 192 (`A/B/C1`, k=4) + 24 (`C2` ablation, k=3) = **216 runs** |
-| Scoring | Gated 0–10 Product Score (7.0 cut score, critical-gate cap ≤ 5.0) + separate 0–10 Process Score + Efficiency Profile + 3-Layer Skill Attribution |
-| Blind Evaluation | Atomic 2-pass Jev (`jev-1.14.0`, `≥0.80` probability) + Anonymized Blind Visual & Adjudication UI |
+| Condition | Pass Rate (ETS ≥7.0 & Gates) | `pass^k` | Product (/10) | Process (/10) | Skill Adherence | Median Time | API-Equiv Cost | Cost / Pass |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| **A** | 54/64 (84.4%) | 12/16 | 8.60 | 9.66 | 86.6% | 98.7s | $7.743 | $0.143 |
+| **B** | 61/64 (95.3%) | 14/16 | 9.31 | 9.69 | 87.1% | 96.0s | $8.208 | $0.135 |
+| **C1** | 58/64 (90.6%) | 13/16 | 9.18 | 9.69 | 86.3% | 103.5s | $10.141 | $0.175 |
+| **C2** | 22/24 (91.7%) | 7/8 | 9.02 | 9.50 | 84.4% | 114.7s | $3.148 | $0.143 |
+
+## Per-Task Product & Process Scores
+
+| Task | Archetype | A | B | C1 | C2 | B Target Discovery |
+|---|---|---|---|---|---|---|
+| `G1-xlsx-financial-model` | `tool_craft` | 5.00 (0/8) | 9.43 (8/8) | 9.28 (8/8) | — | 8/8 |
+| `G2-remotion-display` | `tool_craft` | 8.11 (8/8) | 9.35 (8/8) | 9.57 (8/8) | 8.62 (6/6) | 8/8 |
+| `G3-systematic-debugging` | `workflow_discipline` | 8.61 (8/8) | 8.70 (8/8) | 9.01 (8/8) | 8.64 (6/6) | 0/8 |
+| `G4-tdd-feature` | `workflow_discipline` | 9.96 (8/8) | 9.99 (8/8) | 9.99 (8/8) | — | 0/8 |
+| `G5-postgres-saas` | `production_engineering` | 9.15 (7/8) | 9.75 (8/8) | 9.75 (8/8) | 8.76 (4/6) | 6/8 |
+| `G6-frontend-design` | `production_engineering` | 8.22 (7/8) | 7.90 (6/8) | 6.48 (3/8) | — | 4/8 |
+| `G7-acme-event-contract` | `proprietary_custom` | 9.81 (8/8) | 9.38 (7/8) | 10.00 (8/8) | 10.00 (6/6) | 8/8 |
+| `G8-acme-release-pipeline` | `proprietary_custom` | 9.95 (8/8) | 10.00 (8/8) | 9.36 (7/8) | — | 7/8 |
+
+## Model × Condition Breakdown
+
+| Model | Condition | Product (/10) | Process (/10) | Pass | Explore-Before-Edit | Self-Verified |
+|---|---|---:|---:|---:|---:|---:|
+| `claude-haiku-5-5` | **A** | 8.48 | 9.52 | 27/32 | 5.3 | 87.5% |
+| `claude-haiku-5-5` | **B** | 9.34 | 9.67 | 31/32 | 6.1 | 90.6% |
+| `claude-haiku-5-5` | **C1** | 9.01 | 9.61 | 28/32 | 5.8 | 90.6% |
+| `claude-haiku-5-5` | **C2** | 8.56 | 9.42 | 10/12 | 6.5 | 100.0% |
+| `claude-sonnet-5-5` | **A** | 8.72 | 9.80 | 27/32 | 2.5 | 75.0% |
+| `claude-sonnet-5-5` | **B** | 9.28 | 9.70 | 30/32 | 3.4 | 84.4% |
+| `claude-sonnet-5-5` | **C1** | 9.35 | 9.77 | 30/32 | 3.9 | 78.1% |
+| `claude-sonnet-5-5` | **C2** | 9.43 | 9.58 | 12/12 | 2.4 | 83.3% |

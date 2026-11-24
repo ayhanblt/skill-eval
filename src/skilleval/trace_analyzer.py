@@ -39,9 +39,25 @@ VERIFY_CMD_PATTERNS = (
     re.compile(
         r"\b(pytest|unittest|vitest|jest|npm\s+(run\s+)?(test|build|lint|typecheck)|"
         r"tsc\b|ruff\b|mypy\b|node\s+render|ffmpeg|ffprobe|soffice|libreoffice|"
-        r"psql\b|EXPLAIN|playwright|curl\s+.*localhost)\b",
+        r"psql\b|EXPLAIN|playwright|curl\s+.*localhost|"
+        r"pg_local\.sh\s+test|build_release\.py|recalc\.py|pdftoppm|pdftotext|"
+        r"remotion\s+render|python3?\s+build_model\.py)\b",
         re.IGNORECASE,
     ),
+)
+
+_HEREDOC_BODY_RE = re.compile(
+    r"(<<-?\s*['\"]?([A-Za-z_][A-Za-z0-9_]*)['\"]?[^\n]*\n)(?:.*?\n)\2(?=\s*(?:\n|$))",
+    re.DOTALL,
+)
+_BASH_REDIRECT_RE = re.compile(
+    r"(?:^|[;&|]\s*)(?:cat|echo|printf)\s+[^|;&\n]*?>>?\s*[\"']?([^\"'\s;|&]+)[\"']?"
+)
+_BASH_TEE_RE = re.compile(r"\btee\s+(?:-a\s+)?[\"']?([^\"'\s;|&]+)[\"']?")
+_BASH_SED_INPLACE_RE = re.compile(r"\bsed\s+-i[^\n]*?\s+[\"']?([^\"'\s;|&]+)[\"']?")
+_PY_OPEN_WRITE_RE = re.compile(r"open\(\s*[\"']([^\"']+)[\"']\s*,\s*[\"'][wa]")
+_PY_PATH_WRITE_RE = re.compile(
+    r"Path\(\s*[\"']([^\"']+)[\"']\s*\)\.write_(?:text|bytes)\("
 )
 
 ASSERTION_FAILURE_PATTERNS = (
@@ -98,6 +114,35 @@ def _classify_error(
 
     _ = has_edited_production_code
     return "recoverable_agent_error", norm_err[:140]
+
+
+def _is_doc_only_path(path_str: str) -> bool:
+    return path_str.strip().lower().endswith(".md")
+
+
+def _extract_bash_written_paths(cmd: str) -> tuple[list[str], int]:
+    """Return `(written_workspace_paths, last_write_char_pos)` for file edits performed via Bash."""
+    if not cmd.strip():
+        return [], -1
+
+    shell_headers = _HEREDOC_BODY_RE.sub(r"\1", cmd)
+    raw_matches: list[tuple[str, int]] = []
+    for pat in (_BASH_REDIRECT_RE, _BASH_TEE_RE, _BASH_SED_INPLACE_RE):
+        for m in pat.finditer(shell_headers):
+            raw_matches.append((m.group(1), m.end()))
+    for pat in (_PY_OPEN_WRITE_RE, _PY_PATH_WRITE_RE):
+        for m in pat.finditer(cmd):
+            raw_matches.append((m.group(1), m.end()))
+
+    paths: list[str] = []
+    last_pos = -1
+    for p, end_pos in raw_matches:
+        cleaned = p.strip().strip("'\"")
+        if not cleaned or cleaned.startswith(("/tmp/", "/dev/", "-")):
+            continue
+        paths.append(cleaned)
+        last_pos = max(last_pos, end_pos)
+    return paths, last_pos
 
 
 def _is_test_path(path_str: str) -> bool:
@@ -198,8 +243,9 @@ def analyze_trace(
     prod_edited = False
     red_test_before_prod_edit = False
     green_test_after_prod_edit = False
-    last_edit_seq: int | None = None
-    last_verify_seq: int | None = None
+    last_edit_seq: float | None = None
+    last_code_edit_seq: float | None = None
+    last_verify_seq: float | None = None
 
     invoked_skill_ids: dict[str, str] = {}
     succeeded_skill_names: list[str] = []
@@ -252,19 +298,37 @@ def analyze_trace(
                         first_edit_turn = turns
                     if fpath:
                         edited_files.append(fpath)
-                        if not _is_test_path(fpath):
+                        if not _is_test_path(fpath) and not _is_doc_only_path(fpath):
                             prod_edited = True
-                    last_edit_seq = seq
+                            last_code_edit_seq = float(seq)
+                    last_edit_seq = float(seq)
                 elif tname in READ_TOOLS and first_edit_turn is None:
                     read_steps_before_first_edit += 1
                 elif tname == "Bash":
                     cmd = str(tinput.get("command") or "")
-                    if first_edit_turn is None and re.search(
-                        r"\b(ls|find|cat|head|tail|grep|rg|git\s+status|git\s+log)\b", cmd
+                    bash_writes, _last_write_pos = _extract_bash_written_paths(cmd)
+                    if bash_writes:
+                        if first_edit_turn is None:
+                            first_edit_turn = turns
+                        for fpath in bash_writes:
+                            edited_files.append(fpath)
+                            if not _is_test_path(fpath) and not _is_doc_only_path(fpath):
+                                prod_edited = True
+                                last_code_edit_seq = float(seq)
+                        last_edit_seq = float(seq)
+                    elif first_edit_turn is None and re.search(
+                        r"\b(ls|find|cat|head|tail|grep|rg|git\s+status|git\s+log|git\s+ls-files)\b", cmd
                     ):
                         read_steps_before_first_edit += 1
-                    if any(p.search(cmd) for p in VERIFY_CMD_PATTERNS):
-                        last_verify_seq = seq
+
+                    verify_hits = [m.start() for p in VERIFY_CMD_PATTERNS for m in p.finditer(cmd)]
+                    if verify_hits:
+                        if not bash_writes:
+                            last_verify_seq = float(seq)
+                        else:
+                            # Compound write-then-test in one Bash call: mark tentative compound verify
+                            if _last_write_pos < 0 or max(verify_hits) > _last_write_pos:
+                                tool_uses[tid]["compound_verify"] = True
 
         elif ev.get("type") == "user":
             for block in msg["content"]:
@@ -281,8 +345,10 @@ def analyze_trace(
                 if tid in invoked_skill_ids and not is_err:
                     succeeded_skill_names.append(invoked_skill_ids[tid])
 
-                # TDD red-before-green detection
+                # TDD red-before-green & compound Bash self-verification detection
                 if tname == "Bash":
+                    if call.get("compound_verify") and not is_err:
+                        last_verify_seq = float(call["seq"]) + 0.5
                     cmd = str(tinput.get("command") or "")
                     if any(p.search(cmd) for p in EXPECTED_NEGATIVE_CMD_PATTERNS):
                         if is_err and not prod_edited:
@@ -331,8 +397,11 @@ def analyze_trace(
     total_edits = len(edited_files)
     unique_edits = len(set(edited_files))
     rework_ratio = round((total_edits - unique_edits) / total_edits, 3) if total_edits > 0 else 0.0
+    effective_edit_seq = last_code_edit_seq if last_code_edit_seq is not None else last_edit_seq
     self_verified = (
-        last_edit_seq is not None and last_verify_seq is not None and last_verify_seq > last_edit_seq
+        effective_edit_seq is not None
+        and last_verify_seq is not None
+        and last_verify_seq > effective_edit_seq
     )
     tdd_ok = (
         (red_test_before_prod_edit and green_test_after_prod_edit)

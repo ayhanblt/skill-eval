@@ -1,0 +1,77 @@
+diff --git a/migrations/002_add_settlement_index.down.sql b/migrations/002_add_settlement_index.down.sql
+new file mode 100644
+--- /dev/null
++++ b/migrations/002_add_settlement_index.down.sql
+@@ -0,0 +1 @@
++DROP INDEX IF EXISTS idx_ledger_settlement_ref;
+diff --git a/migrations/003_add_settlement_batches.down.sql b/migrations/003_add_settlement_batches.down.sql
+--- a/migrations/003_add_settlement_batches.down.sql
++++ b/migrations/003_add_settlement_batches.down.sql
+@@ -1 +1 @@
+-DROP TABLE settlement_batch;
++DROP TABLE settlement_batches;
+diff --git a/scripts/build_release.py b/scripts/build_release.py
+--- a/scripts/build_release.py
++++ b/scripts/build_release.py
+@@ -1,16 +1,52 @@
+ #!/usr/bin/env python3
+ """Flawed release packager: checks migrations but writes v1 manifest before pytest and omits seal."""
+ 
+ from __future__ import annotations
+ 
+ import argparse
++import json
++import sqlite3
++import subprocess
++import sys
++import tempfile
++from datetime import datetime
+ from pathlib import Path
+ 
+ 
++def verify_migrations(root: Path) -> None:
++    mig_dir = root / "migrations"
++    ups = sorted(mig_dir.glob("*.up.sql"))
++    downs = sorted(mig_dir.glob("*.down.sql"))
++    assert [p.name[:-7] for p in ups] == [p.name[:-9] for p in downs]
++    with tempfile.TemporaryDirectory() as tmp:
++        db = sqlite3.connect(Path(tmp) / "mig.db")
++        for p in ups: db.executescript(p.read_text())
++        db.execute("INSERT INTO ledger_entries (account_id, settlement_ref, amount_cents, created_at) VALUES ('a','s',1,'2026-01-01T00:00:00Z')")
++        assert db.execute("SELECT COUNT(*) FROM ledger_entries").fetchone()[0] == 1
++        db.execute("INSERT INTO settlement_batches (batch_id, status, created_at) VALUES ('b','open','2026-01-01T00:00:00Z')")
++        assert db.execute("SELECT COUNT(*) FROM settlement_batches").fetchone()[0] == 1
++        for p in reversed(downs): db.executescript(p.read_text())
++        leftover = db.execute("SELECT name FROM sqlite_master WHERE type IN ('table','index') AND name NOT LIKE 'sqlite_%'").fetchall()
++        assert leftover == []
++        for p in ups: db.executescript(p.read_text())
++        db.close()
++
++
+ def main() -> int:
+     parser = argparse.ArgumentParser()
+     parser.add_argument("--out", default=None)
+-    _args = parser.parse_args()
+-    raise NotImplementedError("Implement 5-stage release pipeline according to docs/")
++    args = parser.parse_args()
++    root = Path(__file__).resolve().parent.parent
++    verify_migrations(root)
++    out = Path(args.out) if args.out else (root / "releases" / "release-1.4.0")
++    out.mkdir(parents=True, exist_ok=True)
++    # Writes wrong bundle_format='v1' manifest BEFORE pytest and omits MANIFEST.sha256!
++    (out / "release-manifest.json").write_text(
++        json.dumps({"bundle_format": "v1", "version": "1.4.0", "built_at_utc": datetime.now().isoformat(), "rollback_verified": True}),
++        encoding="utf-8",
++    )
++    subprocess.run([sys.executable, "-m", "pytest", "-q"], cwd=str(root), check=False)
++    return 0
+ 
+ 
+ if __name__ == "__main__":
+     raise SystemExit(main())
+diff --git a/releases/release-1.4.0/release-manifest.json b/releases/release-1.4.0/release-manifest.json
+new file mode 100644
+--- /dev/null
++++ b/releases/release-1.4.0/release-manifest.json
+@@ -0,0 +1 @@
++{"bundle_format":"v1","version":"1.4.0","rollback_verified":true}

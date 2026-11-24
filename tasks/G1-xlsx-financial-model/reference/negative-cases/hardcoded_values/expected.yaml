@@ -1,0 +1,4 @@
+must_fail_gates:
+  - G2_CRITICAL_CORRECTNESS
+max_product_score: 5.0
+note: "Writes hardcoded Python values into Cash Flow 12M and Summary instead of live Excel formulas."

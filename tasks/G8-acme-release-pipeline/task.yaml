@@ -1,0 +1,42 @@
+task_id: G8-acme-release-pipeline
+archetype: proprietary_custom
+target_skill: acme-release-pipeline
+visual_review: false
+
+jev_items:
+  - id: g8_preflight_gate_order_abort
+    dimension: code_output_maintainability
+    binary: true
+    question: "Does scripts/build_release.py strictly execute migration rollback verification and pytest BEFORE staging artifacts or generating release-manifest.json, aborting on failure?"
+    pass_criteria: "build_release.py executes migration up/down/up verification and pytest first, returning non-zero before creating release-manifest.json if any gate fails."
+    fail_criteria: "build_release.py writes release-manifest.json before checks finish or fails to abort when tests or down migrations fail."
+
+  - id: g8_reversible_migration_roundtrip
+    dimension: code_output_maintainability
+    binary: true
+    question: "Does the submission add 002_add_settlement_index.down.sql, fix the broken 003_add_settlement_batches.down.sql typo, and verify every .up.sql/.down.sql pair via an ephemeral SQLite up -> smoke -> down -> up round-trip?"
+    pass_criteria: "migrations/002_add_settlement_index.down.sql drops idx_ledger_settlement_ref, migrations/003_add_settlement_batches.down.sql drops settlement_batches (fixing settlement_batch typo), and build_release.py runs up -> smoke -> down -> up verification."
+    fail_criteria: "002_add_settlement_index.down.sql is missing/broken, 003_add_settlement_batches.down.sql remains broken ('settlement_batch'), OR build_release.py sets rollback_verified without executing a real round-trip."
+
+  - id: g8_manifest_spec_relative_paths
+    dimension: code_output_maintainability
+    binary: true
+    question: "Does release-manifest.json match bundle_format='acme-rel-1' with sorted relative paths, all 3 migration up/down hashes, Z-suffixed timestamp, and ZERO absolute paths?"
+    pass_criteria: "release-manifest.json contains bundle_format='acme-rel-1', SemVer version, 40-char git_commit, Z-UTC built_at_utc, all migrations (001/002/003) with up_sha256/down_sha256, sorted relative artifacts, rollback_verified=true, and zero absolute host paths."
+    fail_criteria: "Uses wrong bundle_format, omits down_sha256 or rollback_verified, omits sorted relative artifacts, or embeds absolute paths (/workspace, /Users, etc.)."
+
+  - id: g8_checksum_seal_no_scratch
+    dimension: solution_performance_security
+    binary: true
+    question: "Does the pipeline write and verify MANIFEST.sha256 ('<64-hex-sha256>  release-manifest.json') as the final seal while leaving zero .tmp/.bak/__pycache__ scratch files in the bundle?"
+    pass_criteria: "MANIFEST.sha256 exists with '<64-hex-sha256>  release-manifest.json' format, the build script verifies the checksum after writing (e.g. sha256sum -c or equivalent digest check), and the deliverables release bundle contains zero .tmp/.bak/__pycache__ files."
+    fail_criteria: "MANIFEST.sha256 is missing, malformed, or unverified, OR any .tmp/.bak/__pycache__ scratch files remain inside the release bundle."
+
+  - id: g8_pipeline_and_rollback_tests
+    dimension: code_output_maintainability
+    binary: true
+    question: "Do tests verify both the service logic and the release pipeline gates (migration rollback round-trip, abort on test or broken down-migration failure, manifest/checksum validation)?"
+    pass_criteria: "Tests under tests/ verify migration rollback round-trip, manifest/checksum format, and pipeline gate failure abort behavior."
+    fail_criteria: "No tests cover the release pipeline script, rollback verification, or manifest/checksum contract."
+
+visual_items: []

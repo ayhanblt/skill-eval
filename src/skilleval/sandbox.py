@@ -53,15 +53,96 @@ def build_sandbox_image(root: Path, tag: str | None = None) -> str:
     return img_id
 
 
+def check_claude_auth_volume(root: Path) -> tuple[bool, dict[str, Any]]:
+    """Verify whether the dedicated Claude OAuth Docker volume has an active login."""
+    spec = load_study_spec(root)
+    image = os.environ.get("SKILLEVAL_DOCKER_IMAGE") or spec["runtime"]["docker_image"]
+    volume = os.environ.get("SKILLEVAL_CLAUDE_AUTH_VOLUME") or spec["runtime"]["auth_volume"]
+    inspect_proc = subprocess.run(
+        ["docker", "volume", "inspect", volume],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if inspect_proc.returncode != 0:
+        return False, {"loggedIn": False, "error": f"Docker volume '{volume}' does not exist yet."}
+
+    proc = subprocess.run(
+        [
+            "docker",
+            "run",
+            "--rm",
+            "-v",
+            f"{volume}:/claude-auth-sync:rw",
+            image,
+            "bash",
+            "-lc",
+            (
+                'TMP="/tmp/auth-check-$$"; mkdir -p "$TMP"; '
+                'cp -a /claude-auth-sync/. "$TMP/" 2>/dev/null || true; '
+                'BEFORE_SHA=""; '
+                'if [ -f "$TMP/.credentials.json" ]; then '
+                'BEFORE_SHA="$(sha256sum "$TMP/.credentials.json" 2>/dev/null | awk \'{print $1}\' || true)"; '
+                'fi; '
+                'set +e; CLAUDE_CONFIG_DIR="$TMP" claude auth status; RC=$?; set -e; '
+                'if [ -s "$TMP/.credentials.json" ] && [ -d "/claude-auth-sync" ]; then '
+                'AFTER_SHA="$(sha256sum "$TMP/.credentials.json" 2>/dev/null | awk \'{print $1}\' || true)"; '
+                'if [ -n "$AFTER_SHA" ] && [ "$AFTER_SHA" != "$BEFORE_SHA" ]; then '
+                'if python3 -c \'import json,sys; d=json.load(open(sys.argv[1])); assert isinstance(d, dict) and d\' "$TMP/.credentials.json" 2>/dev/null; then '
+                'TMP_CRED="/claude-auth-sync/.credentials.json.tmp.$$"; '
+                'if cp "$TMP/.credentials.json" "$TMP_CRED" 2>/dev/null; then '
+                'chmod 600 "$TMP_CRED" 2>/dev/null || true; '
+                'mv -f "$TMP_CRED" /claude-auth-sync/.credentials.json 2>/dev/null || rm -f "$TMP_CRED" 2>/dev/null || true; '
+                'fi; fi; fi; fi; '
+                'exit "$RC"'
+            ),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    raw_out = proc.stdout.strip()
+    if raw_out.startswith("{"):
+        try:
+            data = json.loads(raw_out)
+            if isinstance(data, dict):
+                return bool(data.get("loggedIn")), data
+        except json.JSONDecodeError:
+            pass
+    return False, {
+        "loggedIn": False,
+        "returncode": proc.returncode,
+        "raw": (proc.stdout + "\n" + proc.stderr).strip(),
+    }
+
+
 def login_claude_volume(root: Path) -> None:
     """Open an interactive container attached ONLY to the dedicated Claude OAuth volume."""
     spec = load_study_spec(root)
     image = os.environ.get("SKILLEVAL_DOCKER_IMAGE") or spec["runtime"]["docker_image"]
     volume = os.environ.get("SKILLEVAL_CLAUDE_AUTH_VOLUME") or spec["runtime"]["auth_volume"]
     subprocess.run(["docker", "volume", "create", volume], check=True)
+    # Ensure non-root container user (runner) can write OAuth credential files inside the volume
+    subprocess.run(
+        [
+            "docker",
+            "run",
+            "--rm",
+            "--user",
+            "root",
+            "-v",
+            f"{volume}:/claude-auth",
+            image,
+            "chown",
+            "-R",
+            "runner:runner",
+            "/claude-auth",
+        ],
+        check=True,
+    )
     print(
         f"Opening interactive Claude login inside volume '{volume}'. "
-        "Complete login, then type `exit`."
+        "Complete browser sign-in to persist credentials cleanly."
     )
     subprocess.run(
         [
@@ -75,10 +156,17 @@ def login_claude_volume(root: Path) -> None:
             "CLAUDE_CONFIG_DIR=/claude-auth",
             image,
             "claude",
+            "auth",
             "login",
         ],
         check=True,
     )
+    logged_in, auth_info = check_claude_auth_volume(root)
+    print(f"Auth status for volume '{volume}':", json.dumps(auth_info, indent=2))
+    if not logged_in:
+        raise RuntimeError(
+            f"Claude authentication did not persist in volume '{volume}' (loggedIn={auth_info.get('loggedIn')})."
+        )
 
 
 def _build_claude_settings(row: MatrixRow) -> dict[str, Any]:
@@ -87,7 +175,16 @@ def _build_claude_settings(row: MatrixRow) -> dict[str, Any]:
     if row.condition in ("B", "C1"):
         tools.append("Skill")
 
-    deny = ["Agent", "Task", "WebSearch", "WebFetch", "NotebookEdit"]
+    deny = [
+        "Agent",
+        "Task",
+        "WebSearch",
+        "WebFetch",
+        "NotebookEdit",
+        "Skill(design)",
+        "Skill(doctor)",
+        "Skill(plugin-authoring)",
+    ]
     if row.condition in ("A", "C2"):
         deny.append("Skill")
 
@@ -103,6 +200,55 @@ def _build_claude_settings(row: MatrixRow) -> dict[str, Any]:
         "disableClaudeAiConnectors": True,
         "hooks": hooks,
     }
+
+
+def _build_ephemeral_auth_wrapper() -> str:
+    """Wrap container entrypoint to sync rotated `.credentials.json` without sharing session state."""
+    return """#!/usr/bin/env bash
+set -euo pipefail
+
+EPHEMERAL_CLAUDE_DIR="/tmp/claude-ephemeral-$$"
+mkdir -p "${EPHEMERAL_CLAUDE_DIR}"
+if [ -d "/claude-auth-sync" ]; then
+  cp -a /claude-auth-sync/. "${EPHEMERAL_CLAUDE_DIR}/" 2>/dev/null || true
+fi
+
+BEFORE_SHA=""
+if [ -f "${EPHEMERAL_CLAUDE_DIR}/.credentials.json" ]; then
+  BEFORE_SHA="$(sha256sum "${EPHEMERAL_CLAUDE_DIR}/.credentials.json" 2>/dev/null | awk '{print $1}' || true)"
+fi
+
+export CLAUDE_CONFIG_DIR="${EPHEMERAL_CLAUDE_DIR}"
+export HOME="/tmp/home-ephemeral-$$"
+mkdir -p "${HOME}"
+export GIT_CONFIG_GLOBAL=/dev/null
+export GIT_CONFIG_NOSYSTEM=1
+
+# Provide pre-baked offline Node dependencies when a task workspace contains package.json
+if [ -f /workspace/package.json ] && [ ! -e /workspace/node_modules ] && [ -d /opt/skilleval-node/node_modules ]; then
+  ln -s /opt/skilleval-node/node_modules /workspace/node_modules
+fi
+
+set +e
+"$@" < /control/prompt.txt
+RC=$?
+set -e
+
+if [ -s "${EPHEMERAL_CLAUDE_DIR}/.credentials.json" ] && [ -d "/claude-auth-sync" ]; then
+  AFTER_SHA="$(sha256sum "${EPHEMERAL_CLAUDE_DIR}/.credentials.json" 2>/dev/null | awk '{print $1}' || true)"
+  if [ -n "${AFTER_SHA}" ] && [ "${AFTER_SHA}" != "${BEFORE_SHA}" ]; then
+    if python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert isinstance(d, dict) and d' "${EPHEMERAL_CLAUDE_DIR}/.credentials.json" 2>/dev/null; then
+      TMP_CRED="/claude-auth-sync/.credentials.json.tmp.$$"
+      if cp "${EPHEMERAL_CLAUDE_DIR}/.credentials.json" "${TMP_CRED}" 2>/dev/null; then
+        chmod 600 "${TMP_CRED}" 2>/dev/null || true
+        mv -f "${TMP_CRED}" /claude-auth-sync/.credentials.json 2>/dev/null || rm -f "${TMP_CRED}" 2>/dev/null || true
+      fi
+    fi
+  fi
+fi
+
+exit "${RC}"
+"""
 
 
 def _copy_skill_tree(src: Path, dst: Path) -> None:
@@ -194,6 +340,7 @@ def run_isolated_container(
         )
         (control / "mcp.json").write_text('{"mcpServers": {}}\n', encoding="utf-8")
         shutil.copyfile(root / "docker" / "capture_hook.py", control / "capture_hook.py")
+        (control / "run-wrapper.sh").write_text(_build_ephemeral_auth_wrapper(), encoding="utf-8")
         (control / "prompt.txt").write_text(final_prompt, encoding="utf-8")
 
         tools_csv = ",".join(settings["permissions"]["allow"])
@@ -224,6 +371,8 @@ def run_isolated_container(
             "--tools",
             tools_csv,
         ]
+        if row.condition in ("A", "C2"):
+            claude_args.append("--disable-slash-commands")
         if row.condition == "C2" and preload_hash is not None:
             claude_args.extend(["--append-system-prompt-file", "/control/preload-skill.md"])
 
@@ -231,8 +380,9 @@ def run_isolated_container(
             json.dumps(claude_args, indent=2), encoding="utf-8"
         )
 
-        # Container runs with ephemeral copy of OAuth volume into /tmp/claude-home
-        # so runs NEVER share session history or state across containers!
+        # Container runs with ephemeral copy of OAuth volume into /tmp/claude-ephemeral-$$
+        # so runs NEVER share session history across containers, while `/control/run-wrapper.sh`
+        # atomically syncs back only `.credentials.json` if OAuth refresh rotates the token.
         container_name = f"skilleval-{row.run_id.lower()}-{int(time.time())}"
         docker_cmd = [
             "docker",
@@ -249,7 +399,7 @@ def run_isolated_container(
             "-v",
             f"{capture_dir}:/capture:rw",
             "-v",
-            f"{volume}:/claude-auth-ro:ro",
+            f"{volume}:/claude-auth-sync:rw",
             "-e",
             "GIT_CONFIG_GLOBAL=/dev/null",
             "-e",
@@ -261,7 +411,8 @@ def run_isolated_container(
             "-e",
             "DISABLE_PLUGIN_AUTOLOAD=1",
             image,
-            "/usr/local/bin/skilleval-entrypoint.sh",
+            "bash",
+            "/control/run-wrapper.sh",
             *claude_args,
         ]
 
@@ -292,10 +443,13 @@ def run_isolated_container(
 
         elapsed = round(time.monotonic() - started, 3)
 
-        # Remove .claude before diffing/archiving so installed skills don't pollute workspace.patch
+        # Remove .claude and ephemeral node_modules symlink before diffing/archiving
         claude_dir = workspace / ".claude"
         if claude_dir.exists():
             shutil.rmtree(claude_dir)
+        node_mods = workspace / "node_modules"
+        if node_mods.is_symlink():
+            node_mods.unlink()
 
         # Capture full unified patch (tracked + untracked text files)
         subprocess.run(["git", "add", "-N", "."], cwd=workspace, env=git_env, check=False)
@@ -342,7 +496,7 @@ def run_isolated_container(
         shutil.copytree(
             workspace,
             snapshot_dir,
-            ignore=shutil.ignore_patterns(".git", "__pycache__"),
+            ignore=shutil.ignore_patterns(".git", "__pycache__", "node_modules"),
         )
 
         stderr_text = stderr_file.read_text(encoding="utf-8", errors="replace")

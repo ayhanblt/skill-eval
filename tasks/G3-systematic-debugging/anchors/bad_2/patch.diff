@@ -1,0 +1,8 @@
+diff --git a/billing_svc/pricing.py b/billing_svc/pricing.py
+--- a/billing_svc/pricing.py
++++ b/billing_svc/pricing.py
+@@ -40,3 +40,5 @@ def generate_invoice(...):
+     if promo_code:
+         local_discounts = dict(policy["discounts"])
+         local_discounts[promo_code] = PROMO_CATALOG_BPS[promo_code]
++    # Leaves feature_credits in-place, cache.py shallow, tax_engine.py unfixed, batch_runner.py unfixed, reconciler untouched

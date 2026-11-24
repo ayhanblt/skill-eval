@@ -1,0 +1,695 @@
+diff --git a/src/MetricStory.tsx b/src/MetricStory.tsx
+--- /dev/null
++++ b/src/MetricStory.tsx
+@@ -0,0 +1,46 @@
++import React from "react";
++import { AbsoluteFill, Series, useVideoConfig } from "remotion";
++import type { MetricStoryProps } from "./schema";
++import { IntroScene } from "./scenes/IntroScene";
++import { KpiScene } from "./scenes/KpiScene";
++import { ChartScene } from "./scenes/ChartScene";
++import { OutroScene } from "./scenes/OutroScene";
++import { CaptionBar } from "./components/CaptionBar";
++import { NarrationAudio } from "./components/NarrationAudio";
++
++export const MetricStory: React.FC<MetricStoryProps> = ({
++  title,
++  subtitle,
++  accentColor,
++  backgroundColor,
++  sceneDurationsSec,
++  kpis,
++  bars,
++  takeaway,
++  cta,
++  captions,
++}) => {
++  const { fps } = useVideoConfig();
++  const [d1, d2, d3, d4] = sceneDurationsSec;
++
++  return (
++    <AbsoluteFill style={{ backgroundColor }}>
++      <NarrationAudio />
++      <Series>
++        <Series.Sequence durationInFrames={Math.round(d1 * fps)}>
++          <IntroScene title={title} subtitle={subtitle} accentColor={accentColor} />
++        </Series.Sequence>
++        <Series.Sequence durationInFrames={Math.round(d2 * fps)}>
++          <KpiScene kpis={kpis} accentColor={accentColor} />
++        </Series.Sequence>
++        <Series.Sequence durationInFrames={Math.round(d3 * fps)}>
++          <ChartScene bars={bars} accentColor={accentColor} />
++        </Series.Sequence>
++        <Series.Sequence durationInFrames={Math.round(d4 * fps)}>
++          <OutroScene takeaway={takeaway} cta={cta} accentColor={accentColor} />
++        </Series.Sequence>
++      </Series>
++      <CaptionBar captions={captions} accentColor={accentColor} />
++    </AbsoluteFill>
++  );
++};
+
+diff --git a/src/Root.tsx b/src/Root.tsx
+--- a/src/Root.tsx
++++ b/src/Root.tsx
+@@ -1,19 +1,76 @@
+ import React from "react";
+ import { Composition } from "remotion";
+-
+-const Placeholder: React.FC = () => {
+-  return <div style={{ flex: 1, backgroundColor: "#0F172A" }} />;
+-};
++import { MetricStory } from "./MetricStory";
++import { MetricStorySchema, type MetricStoryProps } from "./schema";
+ 
+ export const RemotionRoot: React.FC = () => {
+   return (
+     <Composition
+       id="MetricStory"
+-      component={Placeholder}
++      component={MetricStory}
+       durationInFrames={360}
+       fps={30}
+       width={1280}
+       height={720}
++      schema={MetricStorySchema}
++      calculateMetadata={({ props }: { props: MetricStoryProps }) => {
++        const fps = 30;
++        const totalSec = props.sceneDurationsSec.reduce((sum: number, sec: number) => sum + sec, 0);
++        return {
++          fps,
++          durationInFrames: Math.max(30, Math.round(totalSec * fps)),
++        };
++      }}
++      defaultProps={{
++        title: "Q3 Platform Reliability Report",
++        subtitle: "Production Latency, Availability & Edge Delivery",
++        accentColor: "#38BDF8",
++        backgroundColor: "#0F172A",
++        sceneDurationsSec: [3, 3, 3, 3],
++        kpis: [
++          { label: "API Availability", value: "99.98%", delta: "+0.04% QoQ" },
++          { label: "P95 Latency", value: "42 ms", delta: "-18% QoQ" },
++          { label: "Daily Requests", value: "148M", delta: "+31% QoQ" },
++        ],
++        bars: [
++          { label: "US-East", value: 34, unit: "ms" },
++          { label: "EU-Central", value: 41, unit: "ms" },
++          { label: "AP-Tokyo", value: 52, unit: "ms" },
++          { label: "SA-East", value: 64, unit: "ms" },
++        ],
++        takeaway: "Edge routing kept global P95 latency under 65 ms while scaling traffic by 31%.",
++        cta: "Full telemetry dashboard available at status.northstar.internal",
++        captions: [
++          {
++            text: "Platform reliability reached 99.98% across production clusters in Q3.",
++            startMs: 0,
++            endMs: 3000,
++            timestampMs: 1500,
++            confidence: 0.99,
++          },
++          {
++            text: "P95 latency dropped 18 percent as daily volume climbed to 148 million requests.",
++            startMs: 3000,
++            endMs: 6000,
++            timestampMs: 4500,
++            confidence: 0.99,
++          },
++          {
++            text: "US-East and EU-Central edge nodes maintained sub-45 ms response times.",
++            startMs: 6000,
++            endMs: 9000,
++            timestampMs: 7500,
++            confidence: 0.99,
++          },
++          {
++            text: "Q4 roadmap automates multi-region failover under 15 seconds.",
++            startMs: 9000,
++            endMs: 12000,
++            timestampMs: 10500,
++            confidence: 0.99,
++          },
++        ],
++      }}
+     />
+   );
+ };
+
+diff --git a/src/components/CaptionBar.tsx b/src/components/CaptionBar.tsx
+--- /dev/null
++++ b/src/components/CaptionBar.tsx
+@@ -0,0 +1,60 @@
++import React from "react";
++import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
++import type { CaptionItem } from "../schema";
++
++type Props = {
++  captions: readonly CaptionItem[];
++  accentColor: string;
++};
++
++export const CaptionBar: React.FC<Props> = ({ captions, accentColor }) => {
++  const frame = useCurrentFrame();
++  const { fps } = useVideoConfig();
++  const currentMs = (frame / fps) * 1000;
++
++  const active = captions.find(
++    (c) => currentMs >= c.startMs && currentMs < c.endMs,
++  );
++  if (!active) {
++    return null;
++  }
++
++  const localFrame = Math.max(0, ((currentMs - active.startMs) / 1000) * fps);
++  const opacity = interpolate(localFrame, [0, Math.round(fps * 0.2)], [0, 1], {
++    extrapolateLeft: "clamp",
++    extrapolateRight: "clamp",
++    easing: Easing.bezier(0.16, 1, 0.3, 1),
++  });
++
++  return (
++    <div
++      style={{
++        position: "absolute",
++        left: 120,
++        right: 120,
++        bottom: 36,
++        display: "flex",
++        justifyContent: "center",
++        opacity,
++      }}
++    >
++      <div
++        style={{
++          backgroundColor: "rgba(10, 15, 28, 0.86)",
++          border: `2px solid ${accentColor}`,
++          borderRadius: 12,
++          padding: "14px 28px",
++          color: "#F8FAFC",
++          fontFamily: "Liberation Sans, DejaVu Sans, sans-serif",
++          fontSize: 24,
++          fontWeight: 600,
++          textAlign: "center",
++          lineHeight: 1.35,
++          maxWidth: 980,
++        }}
++      >
++        {active.text}
++      </div>
++    </div>
++  );
++};
+
+diff --git a/src/components/NarrationAudio.tsx b/src/components/NarrationAudio.tsx
+--- /dev/null
++++ b/src/components/NarrationAudio.tsx
+@@ -0,0 +1,22 @@
++import React from "react";
++import { Audio } from "@remotion/media";
++import { interpolate, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
++
++export const NarrationAudio: React.FC = () => {
++  const frame = useCurrentFrame();
++  const { fps, durationInFrames } = useVideoConfig();
++  const fadeFrames = Math.max(1, Math.round(0.6 * fps));
++  const fadeOutStart = Math.max(fadeFrames + 1, durationInFrames - fadeFrames);
++
++  const volume = interpolate(
++    frame,
++    [0, fadeFrames, fadeOutStart, durationInFrames],
++    [0, 1, 1, 0],
++    {
++      extrapolateLeft: "clamp",
++      extrapolateRight: "clamp",
++    },
++  );
++
++  return <Audio src={staticFile("narration.wav")} volume={volume} />;
++};
+
+diff --git a/src/scenes/ChartScene.tsx b/src/scenes/ChartScene.tsx
+--- /dev/null
++++ b/src/scenes/ChartScene.tsx
+@@ -0,0 +1,112 @@
++import React from "react";
++import {
++  AbsoluteFill,
++  Easing,
++  interpolate,
++  spring,
++  useCurrentFrame,
++  useVideoConfig,
++} from "remotion";
++
++type Bar = { label: string; value: number; unit: string };
++
++type Props = {
++  bars: readonly Bar[];
++  accentColor: string;
++};
++
++export const ChartScene: React.FC<Props> = ({ bars, accentColor }) => {
++  const frame = useCurrentFrame();
++  const { fps } = useVideoConfig();
++
++  const maxValue = Math.max(1, ...bars.map((b) => b.value));
++  const titleOpacity = interpolate(frame, [0, Math.round(0.4 * fps)], [0, 1], {
++    extrapolateLeft: "clamp",
++    extrapolateRight: "clamp",
++    easing: Easing.bezier(0.16, 1, 0.3, 1),
++  });
++  const titleY = interpolate(frame, [0, Math.round(0.4 * fps)], [16, 0], {
++    extrapolateLeft: "clamp",
++    extrapolateRight: "clamp",
++    easing: Easing.bezier(0.16, 1, 0.3, 1),
++  });
++
++  return (
++    <AbsoluteFill
++      style={{
++        padding: "68px 100px 136px 100px",
++        fontFamily: "Liberation Sans, DejaVu Sans, sans-serif",
++        justifyContent: "center",
++      }}
++    >
++      <div
++        style={{
++          color: accentColor,
++          fontSize: 22,
++          fontWeight: 700,
++          letterSpacing: "0.08em",
++          textTransform: "uppercase",
++          marginBottom: 28,
++          opacity: titleOpacity,
++          translate: `0px ${titleY}px`,
++        }}
++      >
++        Regional Breakdown
++      </div>
++      <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
++        {bars.map((bar, idx) => {
++          const delay = Math.round(idx * 0.18 * fps);
++          const grow = spring({
++            frame: Math.max(0, frame - delay),
++            fps,
++            config: { damping: 20, stiffness: 100 },
++          });
++          const pct = (bar.value / maxValue) * 100 * grow;
++
++          return (
++            <div
++              key={bar.label}
++              style={{
++                display: "grid",
++                gridTemplateColumns: "210px 1fr 140px",
++                alignItems: "center",
++                gap: 20,
++              }}
++            >
++              <div style={{ color: "#F8FAFC", fontSize: 24, fontWeight: 600 }}>
++                {bar.label}
++              </div>
++              <div
++                style={{
++                  height: 36,
++                  backgroundColor: "rgba(255,255,255,0.09)",
++                  borderRadius: 8,
++                  overflow: "hidden",
++                }}
++              >
++                <div
++                  style={{
++                    height: "100%",
++                    width: `${pct}%`,
++                    backgroundColor: accentColor,
++                    borderRadius: 8,
++                  }}
++                />
++              </div>
++              <div
++                style={{
++                  color: "#E2E8F0",
++                  fontSize: 24,
++                  fontWeight: 700,
++                  textAlign: "right",
++                }}
++              >
++                {Math.round(bar.value * grow)} {bar.unit}
++              </div>
++            </div>
++          );
++        })}
++      </div>
++    </AbsoluteFill>
++  );
++};
+
+diff --git a/src/scenes/IntroScene.tsx b/src/scenes/IntroScene.tsx
+--- /dev/null
++++ b/src/scenes/IntroScene.tsx
+@@ -0,0 +1,88 @@
++import React from "react";
++import {
++  AbsoluteFill,
++  Easing,
++  interpolate,
++  spring,
++  useCurrentFrame,
++  useVideoConfig,
++} from "remotion";
++
++type Props = {
++  title: string;
++  subtitle: string;
++  accentColor: string;
++};
++
++export const IntroScene: React.FC<Props> = ({ title, subtitle, accentColor }) => {
++  const frame = useCurrentFrame();
++  const { fps } = useVideoConfig();
++
++  const progress = spring({
++    frame,
++    fps,
++    config: { damping: 18, stiffness: 120 },
++  });
++  const barWidth = interpolate(frame, [0, Math.round(1.1 * fps)], [0, 220], {
++    extrapolateLeft: "clamp",
++    extrapolateRight: "clamp",
++    easing: Easing.bezier(0.16, 1, 0.3, 1),
++  });
++  const subtitleOpacity = interpolate(
++    frame,
++    [Math.round(0.35 * fps), Math.round(0.95 * fps)],
++    [0, 1],
++    {
++      extrapolateLeft: "clamp",
++      extrapolateRight: "clamp",
++      easing: Easing.bezier(0.16, 1, 0.3, 1),
++    },
++  );
++
++  return (
++    <AbsoluteFill
++      style={{
++        justifyContent: "center",
++        padding: "0 110px 70px 110px",
++        fontFamily: "Liberation Sans, DejaVu Sans, sans-serif",
++      }}
++    >
++      <div
++        style={{
++          width: barWidth,
++          height: 6,
++          backgroundColor: accentColor,
++          borderRadius: 4,
++          marginBottom: 28,
++        }}
++      />
++      <h1
++        style={{
++          margin: 0,
++          color: "#F8FAFC",
++          fontSize: 64,
++          fontWeight: 800,
++          lineHeight: 1.12,
++          letterSpacing: "-0.02em",
++          opacity: progress,
++          translate: `0px ${interpolate(progress, [0, 1], [36, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" })}px`,
++        }}
++      >
++        {title}
++      </h1>
++      <p
++        style={{
++          margin: "22px 0 0 0",
++          color: "#CBD5E1",
++          fontSize: 30,
++          fontWeight: 500,
++          lineHeight: 1.4,
++          opacity: subtitleOpacity,
++          translate: `0px ${interpolate(subtitleOpacity, [0, 1], [20, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" })}px`,
++        }}
++      >
++        {subtitle}
++      </p>
++    </AbsoluteFill>
++  );
++};
+
+diff --git a/src/scenes/KpiScene.tsx b/src/scenes/KpiScene.tsx
+--- /dev/null
++++ b/src/scenes/KpiScene.tsx
+@@ -0,0 +1,103 @@
++import React from "react";
++import {
++  AbsoluteFill,
++  Easing,
++  interpolate,
++  spring,
++  useCurrentFrame,
++  useVideoConfig,
++} from "remotion";
++
++type Kpi = { label: string; value: string; delta: string };
++
++type Props = {
++  kpis: readonly Kpi[];
++  accentColor: string;
++};
++
++export const KpiScene: React.FC<Props> = ({ kpis, accentColor }) => {
++  const frame = useCurrentFrame();
++  const { fps } = useVideoConfig();
++
++  const headerOpacity = interpolate(frame, [0, Math.round(0.4 * fps)], [0, 1], {
++    extrapolateLeft: "clamp",
++    extrapolateRight: "clamp",
++    easing: Easing.bezier(0.16, 1, 0.3, 1),
++  });
++
++  return (
++    <AbsoluteFill
++      style={{
++        padding: "76px 90px 130px 90px",
++        fontFamily: "Liberation Sans, DejaVu Sans, sans-serif",
++        justifyContent: "center",
++      }}
++    >
++      <div
++        style={{
++          color: accentColor,
++          fontSize: 22,
++          fontWeight: 700,
++          letterSpacing: "0.08em",
++          textTransform: "uppercase",
++          marginBottom: 24,
++          opacity: headerOpacity,
++        }}
++      >
++        Key Performance Indicators
++      </div>
++      <div
++        style={{
++          display: "grid",
++          gridTemplateColumns: `repeat(${Math.min(3, kpis.length)}, 1fr)`,
++          gap: 28,
++        }}
++      >
++        {kpis.map((item, idx) => {
++          const delay = Math.round(idx * 0.25 * fps);
++          const enter = spring({
++            frame: Math.max(0, frame - delay),
++            fps,
++            config: { damping: 16, stiffness: 130 },
++          });
++          return (
++            <div
++              key={item.label}
++              style={{
++                backgroundColor: "rgba(255, 255, 255, 0.06)",
++                border: `2px solid ${accentColor}`,
++                borderRadius: 16,
++                padding: "32px 28px",
++                opacity: enter,
++                scale: String(
++                  interpolate(enter, [0, 1], [0.9, 1], {
++                    extrapolateLeft: "clamp",
++                    extrapolateRight: "clamp",
++                  }),
++                ),
++                translate: `0px ${interpolate(enter, [0, 1], [28, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" })}px`,
++              }}
++            >
++              <div style={{ color: "#CBD5E1", fontSize: 22, fontWeight: 600 }}>
++                {item.label}
++              </div>
++              <div
++                style={{
++                  color: "#FFFFFF",
++                  fontSize: 54,
++                  fontWeight: 800,
++                  margin: "16px 0 12px 0",
++                }}
++              >
++                {item.value}
++              </div>
++              <div style={{ color: accentColor, fontSize: 22, fontWeight: 700 }}>
++                {item.delta}
++              </div>
++            </div>
++          );
++        })}
++      </div>
++    </AbsoluteFill>
++  );
++};
+
+diff --git a/src/scenes/OutroScene.tsx b/src/scenes/OutroScene.tsx
+--- /dev/null
++++ b/src/scenes/OutroScene.tsx
+@@ -0,0 +1,101 @@
++import React from "react";
++import {
++  AbsoluteFill,
++  Easing,
++  interpolate,
++  spring,
++  useCurrentFrame,
++  useVideoConfig,
++} from "remotion";
++
++type Props = {
++  takeaway: string;
++  cta: string;
++  accentColor: string;
++};
++
++export const OutroScene: React.FC<Props> = ({ takeaway, cta, accentColor }) => {
++  const frame = useCurrentFrame();
++  const { fps } = useVideoConfig();
++
++  const cardEnter = spring({
++    frame,
++    fps,
++    config: { damping: 18, stiffness: 110 },
++  });
++  const ctaEnter = interpolate(
++    frame,
++    [Math.round(0.45 * fps), Math.round(1.1 * fps)],
++    [0, 1],
++    {
++      extrapolateLeft: "clamp",
++      extrapolateRight: "clamp",
++      easing: Easing.bezier(0.16, 1, 0.3, 1),
++    },
++  );
++
++  return (
++    <AbsoluteFill
++      style={{
++        padding: "80px 110px 140px 110px",
++        justifyContent: "center",
++        fontFamily: "Liberation Sans, DejaVu Sans, sans-serif",
++      }}
++    >
++      <div
++        style={{
++          borderLeft: `8px solid ${accentColor}`,
++          paddingLeft: 32,
++          opacity: cardEnter,
++          translate: `0px ${interpolate(cardEnter, [0, 1], [32, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" })}px`,
++        }}
++      >
++        <div
++          style={{
++            color: accentColor,
++            fontSize: 22,
++            fontWeight: 700,
++            letterSpacing: "0.08em",
++            textTransform: "uppercase",
++            marginBottom: 16,
++          }}
++        >
++          Executive Takeaway
++        </div>
++        <div
++          style={{
++            color: "#FFFFFF",
++            fontSize: 42,
++            fontWeight: 700,
++            lineHeight: 1.3,
++          }}
++        >
++          {takeaway}
++        </div>
++      </div>
++
++      <div
++        style={{
++          marginTop: 42,
++          display: "inline-flex",
++          alignSelf: "flex-start",
++          backgroundColor: accentColor,
++          color: "#09111E",
++          padding: "16px 28px",
++          borderRadius: 10,
++          fontSize: 24,
++          fontWeight: 800,
++          opacity: ctaEnter,
++          scale: String(
++            interpolate(ctaEnter, [0, 1], [0.94, 1], {
++              extrapolateLeft: "clamp",
++              extrapolateRight: "clamp",
++            }),
++          ),
++        }}
++      >
++        {cta}
++      </div>
++    </AbsoluteFill>
++  );
++};
+
+diff --git a/src/schema.ts b/src/schema.ts
+--- /dev/null
++++ b/src/schema.ts
+@@ -0,0 +1,38 @@
++import { zColor } from "@remotion/zod-types";
++import { z } from "zod";
++
++export const KpiItemSchema = z.object({
++  label: z.string(),
++  value: z.string(),
++  delta: z.string(),
++});
++
++export const BarItemSchema = z.object({
++  label: z.string(),
++  value: z.number(),
++  unit: z.string(),
++});
++
++export const CaptionItemSchema = z.object({
++  text: z.string(),
++  startMs: z.number(),
++  endMs: z.number(),
++  timestampMs: z.number().nullable(),
++  confidence: z.number().nullable(),
++});
++
++export const MetricStorySchema = z.object({
++  title: z.string(),
++  subtitle: z.string(),
++  accentColor: zColor(),
++  backgroundColor: zColor(),
++  sceneDurationsSec: z.array(z.number().positive()).length(4),
++  kpis: z.array(KpiItemSchema).min(1),
++  bars: z.array(BarItemSchema).min(1),
++  takeaway: z.string(),
++  cta: z.string(),
++  captions: z.array(CaptionItemSchema),
++});
++
++export type MetricStoryProps = z.infer<typeof MetricStorySchema>;
++export type CaptionItem = z.infer<typeof CaptionItemSchema>;

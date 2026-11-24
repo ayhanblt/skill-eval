@@ -1,0 +1,6 @@
+expected:
+  g6_anti_cliche_palette_and_chrome: fail
+  g6_typography_scale_and_measure: fail
+  g6_active_voice_and_clear_microcopy: fail
+  g6_responsive_focus_and_reduced_motion: fail
+  g6_xss_safe_dom_rendering: fail

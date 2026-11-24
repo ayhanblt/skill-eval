@@ -1,0 +1,6 @@
+expected:
+  g4_decimal_only_arithmetic: pass
+  g4_graduated_tiers_and_validation: pass
+  g4_discounts_and_fifo_credits: fail
+  g4_behavioral_unit_tests: fail
+  g4_clean_modular_implementation: pass

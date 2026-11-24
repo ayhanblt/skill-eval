@@ -1,0 +1,2 @@
+-- 002_optimizations.sql
+-- Add targeted indexes (max 6 new indexes total) and optimized RLS policies here.

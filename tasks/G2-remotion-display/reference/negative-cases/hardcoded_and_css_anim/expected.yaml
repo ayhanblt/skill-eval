@@ -1,0 +1,5 @@
+must_fail_gates:
+  - G2_CRITICAL_CORRECTNESS
+  - G3_CRITICAL_SAFETY_RULES
+max_product_score: 5.0
+note: "Hardcodes Dataset A text/colors ignoring props, and uses CSS transition/keyframes instead of frame-driven animation."

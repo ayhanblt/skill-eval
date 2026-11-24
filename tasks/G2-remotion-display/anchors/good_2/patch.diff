@@ -1,0 +1,103 @@
+diff --git a/src/propsSchema.ts b/src/propsSchema.ts
+new file mode 100644
+--- /dev/null
++++ b/src/propsSchema.ts
+@@ -0,0 +1,20 @@
++import { zColor } from "@remotion/zod-types";
++import { z } from "zod";
++export const StoryPropsSchema = z.object({
++  title: z.string(),
++  subtitle: z.string(),
++  accentColor: zColor(),
++  backgroundColor: zColor(),
++  sceneDurationsSec: z.array(z.number().positive()).length(4),
++  kpis: z.array(z.object({ label: z.string(), value: z.string(), delta: z.string() })),
++  bars: z.array(z.object({ label: z.string(), value: z.number(), unit: z.string() })),
++  takeaway: z.string(),
++  cta: z.string(),
++  captions: z.array(z.object({ text: z.string(), startMs: z.number(), endMs: z.number(), timestampMs: z.number().nullable(), confidence: z.number().nullable() })),
++});
+diff --git a/src/components/AudioTrack.tsx b/src/components/AudioTrack.tsx
+new file mode 100644
+--- /dev/null
++++ b/src/components/AudioTrack.tsx
+@@ -0,0 +1,9 @@
++import { Audio } from "@remotion/media";
++import { interpolate, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
++export const AudioTrack = () => {
++  const frame = useCurrentFrame();
++  const { fps, durationInFrames } = useVideoConfig();
++  const fade = Math.round(0.6 * fps);
++  const volume = interpolate(frame, [0, fade, durationInFrames - fade, durationInFrames], [0, 1, 1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
++  return <Audio src={staticFile("narration.wav")} volume={volume} />;
++};
+diff --git a/src/components/SubtitlesOverlay.tsx b/src/components/SubtitlesOverlay.tsx
+new file mode 100644
+--- /dev/null
++++ b/src/components/SubtitlesOverlay.tsx
+@@ -0,0 +1,6 @@
++import { useCurrentFrame, useVideoConfig } from "remotion";
++export const SubtitlesOverlay = ({ captions }) => {
++  const frame = useCurrentFrame(); const { fps } = useVideoConfig(); const tMs = (frame / fps) * 1000;
++  const cur = captions.find((c) => tMs >= c.startMs && tMs < c.endMs);
++  return cur ? <div style={{ position: "absolute", bottom: 32 }}>{cur.text}</div> : null;
++};
+diff --git a/src/scenes/Scenes.tsx b/src/scenes/Scenes.tsx
+new file mode 100644
+--- /dev/null
++++ b/src/scenes/Scenes.tsx
+@@ -0,0 +1,22 @@
++import { AbsoluteFill, Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
++export const IntroScene = ({ title, subtitle, accentColor }) => {
++  const frame = useCurrentFrame(); const { fps } = useVideoConfig();
++  const y = interpolate(frame, [0, fps], [24, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: Easing.bezier(0.16, 1, 0.3, 1) });
++  return <AbsoluteFill style={{ translate: `0px ${y}px` }}><h1 style={{ color: accentColor }}>{title}</h1><p>{subtitle}</p></AbsoluteFill>;
++};
++export const KpiScene = ({ kpis }) => {
++  const frame = useCurrentFrame(); const { fps } = useVideoConfig();
++  const s = interpolate(frame, [0, fps], [0.9, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: Easing.spring({ damping: 200 }) });
++  return <AbsoluteFill style={{ scale: String(s) }}>{kpis.map((k) => <div key={k.label}>{k.label}: {k.value}</div>)}</AbsoluteFill>;
++};
++export const BarChartScene = ({ bars, accentColor }) => {
++  const frame = useCurrentFrame(); const { fps } = useVideoConfig();
++  const w = interpolate(frame, [0, 1.5 * fps], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: Easing.bezier(0.16, 1, 0.3, 1) });
++  return <AbsoluteFill>{bars.map((b) => <div key={b.label} style={{ width: `${b.value * w}%`, backgroundColor: accentColor }}>{b.label}</div>)}</AbsoluteFill>;
++};
++export const OutroScene = ({ takeaway, cta }) => {
++  const frame = useCurrentFrame(); const { fps } = useVideoConfig();
++  const op = interpolate(frame, [0, fps], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: Easing.bezier(0.16, 1, 0.3, 1) });
++  return <AbsoluteFill style={{ opacity: op }}><div>{takeaway}</div><div>{cta}</div></AbsoluteFill>;
++};
+diff --git a/src/StoryVideo.tsx b/src/StoryVideo.tsx
+new file mode 100644
+--- /dev/null
++++ b/src/StoryVideo.tsx
+@@ -0,0 +1,20 @@
++import { AbsoluteFill, Sequence, useVideoConfig } from "remotion";
++import { AudioTrack } from "./components/AudioTrack";
++import { SubtitlesOverlay } from "./components/SubtitlesOverlay";
++import { IntroScene, KpiScene, BarChartScene, OutroScene } from "./scenes/Scenes";
++export const StoryVideo = (props) => {
++  const { fps } = useVideoConfig();
++  const [f1, f2, f3, f4] = props.sceneDurationsSec.map((s) => Math.round(s * fps));
++  return (
++    <AbsoluteFill style={{ backgroundColor: props.backgroundColor }}>
++      <AudioTrack />
++      <Sequence from={0} durationInFrames={f1}><IntroScene {...props} /></Sequence>
++      <Sequence from={f1} durationInFrames={f2}><KpiScene {...props} /></Sequence>
++      <Sequence from={f1 + f2} durationInFrames={f3}><BarChartScene {...props} /></Sequence>
++      <Sequence from={f1 + f2 + f3} durationInFrames={f4}><OutroScene {...props} /></Sequence>
++      <SubtitlesOverlay captions={props.captions} />
++    </AbsoluteFill>
++  );
++};
+diff --git a/src/Root.tsx b/src/Root.tsx
+--- a/src/Root.tsx
++++ b/src/Root.tsx
+@@ -1,6 +1,12 @@
++import { Composition } from "remotion";
++import { StoryVideo } from "./StoryVideo";
++import { StoryPropsSchema } from "./propsSchema";
++export const RemotionRoot = () => (
++  <Composition id="MetricStory" component={StoryVideo} durationInFrames={360} fps={30} width={1280} height={720} schema={StoryPropsSchema} calculateMetadata={({ props }) => ({ fps: 30, durationInFrames: Math.round(props.sceneDurationsSec.reduce((a, b) => a + b, 0) * 30) })} defaultProps={{ title: "Report", subtitle: "Sub", accentColor: "#F59E0B", backgroundColor: "#0A2E22", sceneDurationsSec: [3, 3, 3, 3], kpis: [], bars: [], takeaway: "T", cta: "CTA", captions: [] }} />
++);

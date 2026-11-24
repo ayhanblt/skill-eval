@@ -1,0 +1,50 @@
+{
+  "title": "Q3 Platform Reliability Report",
+  "subtitle": "Production Latency, Availability & Edge Delivery",
+  "accentColor": "#38BDF8",
+  "backgroundColor": "#0F172A",
+  "sceneDurationsSec": [3, 3, 3, 3],
+  "kpis": [
+    { "label": "API Availability", "value": "99.98%", "delta": "+0.04% QoQ" },
+    { "label": "P95 Latency", "value": "42 ms", "delta": "-18% QoQ" },
+    { "label": "Daily Requests", "value": "148M", "delta": "+31% QoQ" }
+  ],
+  "bars": [
+    { "label": "US-East", "value": 34, "unit": "ms" },
+    { "label": "EU-Central", "value": 41, "unit": "ms" },
+    { "label": "AP-Tokyo", "value": 52, "unit": "ms" },
+    { "label": "SA-East", "value": 64, "unit": "ms" }
+  ],
+  "takeaway": "Edge routing kept global P95 latency under 65 ms while scaling traffic by 31%.",
+  "cta": "Full telemetry dashboard available at status.northstar.internal",
+  "captions": [
+    {
+      "text": "Platform reliability reached 99.98% across production clusters in Q3.",
+      "startMs": 0,
+      "endMs": 3000,
+      "timestampMs": 1500,
+      "confidence": 0.99
+    },
+    {
+      "text": "P95 latency dropped 18 percent as daily volume climbed to 148 million requests.",
+      "startMs": 3000,
+      "endMs": 6000,
+      "timestampMs": 4500,
+      "confidence": 0.99
+    },
+    {
+      "text": "US-East and EU-Central edge nodes maintained sub-45 ms response times.",
+      "startMs": 6000,
+      "endMs": 9000,
+      "timestampMs": 7500,
+      "confidence": 0.99
+    },
+    {
+      "text": "Q4 roadmap automates multi-region failover under 15 seconds.",
+      "startMs": 9000,
+      "endMs": 12000,
+      "timestampMs": 10500,
+      "confidence": 0.99
+    }
+  ]
+}

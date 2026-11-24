@@ -1,0 +1,42 @@
+task_id: G7-acme-event-contract
+archetype: proprietary_custom
+target_skill: acme-event-contract
+visual_review: false
+
+jev_items:
+  - id: g7_envelope_v2_and_z_utc
+    dimension: code_output_maintainability
+    binary: true
+    question: "Does acme_orders/handler.py emit and persist schema_version='acme.v2' event envelopes with UUIDv4 event_id and Z-suffixed RFC 3339 UTC timestamps?"
+    pass_criteria: "Handler constructs event envelopes with schema_version='acme.v2', UUIDv4 event_id, correlation_id, tenant_id, and occurred_at_utc formatted strictly with trailing 'Z' (not '+00:00')."
+    fail_criteria: "Omits schema_version='acme.v2', omits correlation_id/UUIDv4 event_id, or emits '+00:00' / naive timestamps instead of trailing 'Z'."
+
+  - id: g7_acme_idempotency_canonical_hash
+    dimension: code_output_maintainability
+    binary: true
+    question: "Does the handler enforce X-Acme-Idempotency-Key (rejecting generic Idempotency-Key) and hash canonical sorted JSON with X-Acme-Replayed: true on replay?"
+    pass_criteria: "Enforces X-Acme-Idempotency-Key, computes SHA-256 over json.dumps(payload, sort_keys=True, separators=(',',':')), returns X-Acme-Replayed: 'true' on replay, and returns 409 ACME_EVT_409_PAYLOAD_MISMATCH on conflict."
+    fail_criteria: "Accepts generic Idempotency-Key, hashes uncanonical raw bytes, omits X-Acme-Replayed header, or returns wrong conflict status/code."
+
+  - id: g7_structured_acme_error_envelope
+    dimension: code_output_maintainability
+    binary: true
+    question: "Do all 4xx/5xx error responses follow the structured Acme error envelope ({'error': {'code': 'ACME_...', 'retryable': bool, 'correlation_id': str, 'message': str}})?"
+    pass_criteria: "Every 400/409/error path returns {'error': {'code': 'ACME_EVT_...', 'retryable': ..., 'correlation_id': ..., 'message': ...}}."
+    fail_criteria: "Returns flat error dicts ({'detail': ...} or {'message': ...}) or omits ACME_EVT_* codes / retryable / correlation_id."
+
+  - id: g7_zero_pii_audit_every_mutation
+    dimension: solution_performance_security
+    binary: true
+    question: "Does the service append an audit record (actor_id, action, outcome, payload_sha256, correlation_id) for BOTH accepted and rejected mutations with zero raw PII?"
+    pass_criteria: "Calls audit logging on accepted, replayed, and rejected paths using payload_sha256 without storing customer_email, phone, card_number, Authorization, or raw request payloads."
+    fail_criteria: "Skips audit logging on rejected requests OR writes raw PII/payload/headers into audit records."
+
+  - id: g7_contract_test_coverage
+    dimension: code_output_maintainability
+    binary: true
+    question: "Do tests cover missing header rejection, canonical replay, 409 payload mismatch conflict, Z-suffixed UTC timestamps, and zero-PII audit assertions?"
+    pass_criteria: "Tests under tests/ explicitly assert X-Acme-Idempotency-Key validation, X-Acme-Replayed replay, ACME_EVT_409_PAYLOAD_MISMATCH conflict, 'Z' timestamps, and zero PII in audit log."
+    fail_criteria: "Tests only verify smoke initialization or omit replay/conflict/audit-PII assertions."
+
+visual_items: []

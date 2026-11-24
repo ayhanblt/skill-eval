@@ -1,0 +1,4 @@
+must_fail_gates:
+  - G2_CRITICAL_CORRECTNESS
+max_product_score: 5.0
+note: "Uses wrong bundle_format='v1', omits MANIFEST.sha256, and writes manifest even when pytest fails."

@@ -1,0 +1,33 @@
+diff --git a/build_model.py b/build_model.py
+new file mode 100644
+--- /dev/null
++++ b/build_model.py
+@@ -0,0 +1,34 @@
++from openpyxl import Workbook
++from openpyxl.chart import BarChart, Reference
++from openpyxl.styles import Font
++
++INPUT_FONT = Font(name="Calibri", size=10, color="0000FF")
++FORMULA_FONT = Font(name="Calibri", size=10, color="000000")
++LINK_FONT = Font(name="Calibri", size=10, color="008000")
++
++def build(ws_in, ws_as, ws_cf, ws_sum):
++    ws_in["B5"] = 120
++    ws_in["B5"].font = INPUT_FONT
++    ws_as["B12"] = '=IF(Inputs!$B$4="Upside",B6,IF(Inputs!$B$4="Downside",B7,B5))'
++    ws_as["B12"].font = LINK_FONT
++    ws_as["C12"] = "Scenario table multiplier documented from baseline_inputs.json"
++    ws_cf["B8"] = "=MAX(0,B5+B6-B7)"
++    ws_cf["B8"].font = FORMULA_FONT
++    ws_cf["B8"].number_format = "#,##0"
++    ws_sum["B4"] = "=SUM('Cash Flow 12M'!B9:M9)"
++    ws_sum["B4"].font = LINK_FONT
++    ws_sum["B4"].number_format = "$#,##0"
++    chart = BarChart()
++    chart.title = "Revenue vs Ending Cash"
++    chart.roundedCorners = False
++    chart.title.overlay = False
++    chart.legend.overlay = False
++    chart.x_axis.delete = False
++    chart.y_axis.delete = False
++    ws_sum.add_chart(chart, "E4")

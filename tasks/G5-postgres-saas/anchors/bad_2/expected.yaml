@@ -1,0 +1,6 @@
+expected:
+  g5_partial_composite_keyset_index: pass
+  g5_keyset_pagination_query: pass
+  g5_n_plus_one_left_join: fail
+  g5_skip_locked_and_rls_initplan: fail
+  g5_explain_analyze_buffers_report: pass

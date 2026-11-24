@@ -1,0 +1,46 @@
+task_id: G1-xlsx-financial-model
+archetype: tool_craft
+target_skill: xlsx
+visual_review: true
+
+jev_items:
+  - id: g1_live_formulas
+    dimension: code_output_maintainability
+    binary: true
+    question: "Do the workbook and generator script use live Excel formulas across Assumptions, Cash Flow 12M, and Summary rather than writing precomputed numeric literals?"
+    pass_criteria: "Inspection confirms >=120 formula cells starting with '=' (such as SUM, ROUND, ROUNDUP, IF, MAX, MIN, INDEX/MATCH) and generator code writes Excel formula strings into formula cells."
+    fail_criteria: "Inspection reports <60 formula cells OR computed KPI/cash-flow cells contain static numeric literals instead of '=' Excel formulas."
+
+  - id: g1_compatible_functions
+    dimension: code_output_maintainability
+    binary: true
+    question: "Do all formulas avoid LibreOffice-incompatible Excel 365 functions (bare XLOOKUP, XMATCH, FILTER, UNIQUE, SORT, SEQUENCE, LET, LAMBDA)?"
+    pass_criteria: "Inspection shows unsupported_functions is empty and all lookups use compatible Excel 2007+ functions such as INDEX/MATCH or IF."
+    fail_criteria: "Inspection lists one or more unsupported functions (e.g. XLOOKUP, FILTER, UNIQUE, SORT, LET, LAMBDA) in formula cells or generator code."
+
+  - id: g1_number_formatting
+    dimension: code_output_maintainability
+    binary: true
+    question: "Do currency, percentage, and integer count cells use explicit Excel number formats (not General)?"
+    pass_criteria: "Inspection confirms currency cells use explicit currency/accounting format ($#,##0 or $#,##0;($#,##0);-), percentages use 0.0%, and customer/headcount counts use #,##0 integer formatting."
+    fail_criteria: "Inspection reports numeric KPI or cash-flow cells left with default 'General' formatting or raw unformatted floats for rates/currency."
+
+  - id: g1_financial_color_coding
+    dimension: code_output_maintainability
+    binary: true
+    question: "Does the workbook apply clear financial-model font color conventions separating hardcoded inputs (blue), same-sheet formulas (black), and cross-sheet links (green)?"
+    pass_criteria: "Inspection shows Inputs parameters styled with blue font (0000FF), same-sheet formula cells in black (000000), and cross-sheet reference cells in green (008000)."
+    fail_criteria: "Inspection shows uniform single-color fonts across inputs, same-sheet formulas, and cross-sheet links with no visual distinction."
+
+  - id: g1_native_chart_and_assumptions
+    dimension: code_output_maintainability
+    binary: true
+    question: "Does the Summary tab embed at least one native openpyxl chart with non-overlapping title/legend and visible axes, alongside documented Assumptions?"
+    pass_criteria: "Inspection confirms chart_count >= 1 on Summary with legend.overlay=False, title.overlay=False, x_axis.delete=False, y_axis.delete=False, roundedCorners=False, and documented assumption sources/notes."
+    fail_criteria: "Inspection reports chart_count == 0, OR chart has overlay=True / hidden axes, OR Assumptions lack source/note documentation."
+
+visual_items:
+  - id: g1_visual_no_truncation
+    question: "Are all rendered PDF/PNG pages of the workbook visually free of ### cell truncation, overlapping text, and clipped headers?"
+  - id: g1_visual_exec_hierarchy
+    question: "Do the Summary KPI block, embedded chart, and 12-month Cash Flow table display clear visual hierarchy, legible typography, and balanced column widths?"

@@ -1,0 +1,213 @@
+diff --git a/site/index.html b/site/index.html
+--- a/site/index.html
++++ b/site/index.html
+@@ -1,14 +1,59 @@
+ <!doctype html>
+ <html lang="en">
+ <head>
+   <meta charset="utf-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1">
+-  <title>Meridian Botanical Conservatory</title>
++  <title>Meridian Conservatory Herbarium Ledger</title>
+   <link rel="stylesheet" href="./styles.css">
+ </head>
+ <body>
+-  <main>
++  <header class="banner">
++    <nav aria-label="Main navigation">
++      <a href="#catalog">Specimen collection</a>
++      <a href="#compare-drawer">Field comparison</a>
++      <a href="#estimator">Visit pass estimator</a>
++    </nav>
+     <h1>Meridian Botanical Conservatory</h1>
+-    <p>Exhibition almanac placeholder.</p>
++    <p class="lead">Curated glasshouse flora indexed across three controlled pavilions.</p>
++  </header>
++  <main id="catalog" class="almanac-grid">
++    <section aria-label="Biome telemetry">
++      <h2>Microclimate Telemetry</h2>
++      <p id="biome-temp">18.5°C</p>
++    </section>
++    <section aria-label="Specimen filters">
++      <label for="search-q">Search species</label>
++      <input id="search-q" type="search" placeholder="Name or Latin binomial">
++      <button type="button" data-biome="All" aria-pressed="true">All</button>
++      <button type="button" data-biome="Cloud Forest" aria-pressed="false">Cloud Forest</button>
++    </section>
++    <section id="compare-drawer" data-compare-drawer hidden aria-label="Field guide comparison">
++      <h2>Field Guide Comparison</h2>
++      <div id="compare-list" class="compare-slots"></div>
++      <button type="button" id="compare-clear" data-compare-clear>Clear comparison</button>
++    </section>
++    <section id="cards" class="cards-grid" aria-label="Specimen cards"></section>
++    <section id="empty-box" data-empty-state hidden>
++      <p>No specimens match the active filter. Reset filters to view the full collection.</p>
++      <button type="button" id="reset-all">Reset filters</button>
++    </section>
++    <section id="estimator">
++      <form id="pass-form" novalidate>
++        <label for="visit-date">Preferred visit date</label>
++        <input id="visit-date" type="date" required>
++        <label for="visit-count">Visitors (1-8)</label>
++        <input id="visit-count" type="number" min="1" max="8" required>
++        <div id="form-alert" role="alert" hidden></div>
++        <button type="submit">Calculate visit pass</button>
++      </form>
++      <div id="pass-summary" data-pass-summary hidden></div>
++    </section>
+   </main>
++  <dialog id="detail-dialog" aria-labelledby="dlg-title">
++    <h2 id="dlg-title"></h2>
++    <p id="dlg-care"></p>
++    <button id="dlg-close" type="button" aria-label="Close specimen details">Close dossier</button>
++  </dialog>
+   <script src="./app.js" defer></script>
+ </body>
+ </html>
+diff --git a/site/styles.css b/site/styles.css
+--- a/site/styles.css
++++ b/site/styles.css
+@@ -1,4 +1,52 @@
++:root {
++  --surface-sage: #edf3f0;
++  --surface-card: #ffffff;
++  --ink-pine: #13251f;
++  --ink-secondary: #3f554d;
++  --accent-verdigris: #1c5b4a;
++  --accent-indigo: #39487a;
++  --rule-hairline: #b9cbc3;
++  --font-serif: "Palatino Linotype", Georgia, serif;
++  --font-sans: "Liberation Sans", system-ui, sans-serif;
++}
++* {
++  box-sizing: border-box;
++}
+ body {
+   margin: 0;
+-  font-family: sans-serif;
++  background-color: var(--surface-sage);
++  color: var(--ink-pine);
++  font-family: var(--font-sans);
++  font-size: 16px;
++  line-height: 1.55;
++}
++.almanac-grid {
++  max-width: 1280px;
++  margin: 0 auto;
++  padding: 24px 16px;
++  display: grid;
++  grid-template-columns: 320px minmax(0, 1fr);
++  gap: 24px;
++}
++.cards-grid,
++.compare-slots {
++  display: grid;
++  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
++  gap: 16px;
++}
++h1 {
++  font-family: var(--font-serif);
++  font-size: clamp(2rem, 3.6vw, 3rem);
++  margin: 0 0 8px;
++}
++p {
++  max-width: 65ch;
++}
++:focus-visible {
++  outline: 3px solid var(--accent-indigo);
++  outline-offset: 2px;
++}
++.banner nav {
++  display: flex;
++  flex-wrap: wrap;
++  gap: 16px;
++}
++@media (max-width: 768px) {
++  .almanac-grid { grid-template-columns: 1fr; }
++  .cards-grid, .compare-slots { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
++}
++@media (max-width: 375px) {
++  .cards-grid, .compare-slots { grid-template-columns: 1fr; }
++}
++@media (prefers-reduced-motion: reduce) {
++  *, *::before, *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
+ }
+diff --git a/site/app.js b/site/app.js
+--- a/site/app.js
++++ b/site/app.js
+@@ -1 +1,70 @@
+-// Implement conservatory interactive almanac in site/app.js.
++document.addEventListener("DOMContentLoaded", async () => {
++  const data = await (await fetch("./data/specimens.json")).json();
++  const host = document.getElementById("cards");
++  const drawer = document.getElementById("compare-drawer");
++  const compareList = document.getElementById("compare-list");
++  const dlg = document.getElementById("detail-dialog");
++  const closeBtn = document.getElementById("dlg-close");
++  const form = document.getElementById("pass-form");
++  const alertBox = document.getElementById("form-alert");
++  const compared = [];
++  let lastFocus = null;
++
++  function renderCompare() {
++    compareList.textContent = "";
++    drawer.hidden = compared.length === 0;
++    for (const s of compared) {
++      const row = document.createElement("div");
++      row.textContent = `${s.commonName} | Biome: ${s.biome} | Elevation: ${s.elevation} | Bloom: ${s.bloomSeason} | Status: ${s.conservation}`;
++      compareList.appendChild(row);
++    }
++  }
++
++  function closeModal() {
++    if (dlg.open) dlg.close();
++    if (lastFocus && typeof lastFocus.focus === "function") lastFocus.focus();
++  }
++
++  for (const s of data.specimens) {
++    const card = document.createElement("article");
++    card.setAttribute("data-specimen-card", s.id);
++    const h3 = document.createElement("h3");
++    h3.textContent = s.commonName;
++    const p = document.createElement("p");
++    p.textContent = s.summary;
++    const inspectBtn = document.createElement("button");
++    inspectBtn.type = "button";
++    inspectBtn.textContent = "Inspect dossier";
++    inspectBtn.addEventListener("click", () => {
++      lastFocus = inspectBtn;
++      document.getElementById("dlg-title").textContent = s.latinName;
++      document.getElementById("dlg-care").textContent = s.careNotes;
++      dlg.showModal();
++      closeBtn.focus();
++    });
++    const cmpBtn = document.createElement("button");
++    cmpBtn.type = "button";
++    cmpBtn.setAttribute("data-compare-toggle", s.id);
++    cmpBtn.setAttribute("aria-pressed", "false");
++    cmpBtn.textContent = "Add to field guide";
++    cmpBtn.addEventListener("click", () => {
++      if (compared.includes(s)) compared.splice(compared.indexOf(s), 1);
++      else if (compared.length < 3) compared.push(s);
++      cmpBtn.setAttribute("aria-pressed", compared.includes(s) ? "true" : "false");
++      renderCompare();
++    });
++    card.append(h3, p, inspectBtn, cmpBtn);
++    host.appendChild(card);
++  }
++  closeBtn.addEventListener("click", closeModal);
++  dlg.addEventListener("cancel", (ev) => { ev.preventDefault(); closeModal(); });
++  document.getElementById("compare-clear").addEventListener("click", () => {
++    compared.length = 0;
++    for (const b of document.querySelectorAll("[data-compare-toggle]")) b.setAttribute("aria-pressed", "false");
++    renderCompare();
++  });
++  form.addEventListener("submit", (ev) => {
++    ev.preventDefault();
++    const d = document.getElementById("visit-date").value;
++    if (!d) { alertBox.textContent = "Select a preferred visit date to estimate pricing."; alertBox.hidden = false; return; }
++    alertBox.hidden = true;
++    document.getElementById("pass-summary").textContent = `Timed pass scheduled for ${d}.`;
++    document.getElementById("pass-summary").hidden = false;
++  });
++});

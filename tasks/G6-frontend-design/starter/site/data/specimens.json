@@ -1,0 +1,166 @@
+{
+  "conservatory": "Meridian Botanical Conservatory",
+  "season": "Autumn–Winter Almanac 2026",
+  "biomes": [
+    {
+      "id": "Cloud Forest",
+      "temperature_c": "18.5°C",
+      "humidity_pct": "88% RH",
+      "misting_schedule": "Every 40 min · 06:00–20:00",
+      "architectural_note": "Suspended steel walkway beneath a 26m laminated-timber mist dome."
+    },
+    {
+      "id": "Arid Pavilion",
+      "temperature_c": "29.0°C",
+      "humidity_pct": "24% RH",
+      "misting_schedule": "Drip pulse every 9 days",
+      "architectural_note": "Rammed-earth thermal plinths beneath angled low-iron solar louvers."
+    },
+    {
+      "id": "Alpine House",
+      "temperature_c": "7.5°C",
+      "humidity_pct": "54% RH",
+      "misting_schedule": "Chilled sub-gravel capillary bed",
+      "architectural_note": "Cross-ventilated limestone scree beds cooled by geothermal loops."
+    }
+  ],
+  "visitPasses": [
+    { "id": "general", "name": "General Conservatory Entry", "priceUsd": 18 },
+    { "id": "curator", "name": "Curator Dawn Glasshouse Tour", "priceUsd": 34 },
+    { "id": "botanical-lab", "name": "Seed Vault & Herbarium Pass", "priceUsd": 46 }
+  ],
+  "specimens": [
+    {
+      "id": "nep-rajah",
+      "commonName": "Giant Montane Pitcher",
+      "latinName": "Nepenthes rajah",
+      "biome": "Cloud Forest",
+      "bloomSeason": "Autumn",
+      "elevation": "1,500–2,650 m",
+      "conservation": "Endangered",
+      "summary": "Serpentine-soil pitcher plant thriving in cool nocturnal fog.",
+      "careNotes": "Irrigated exclusively with reverse-osmosis rainwater; root zone chilled to 15°C nightly."
+    },
+    {
+      "id": "drac-vamp",
+      "commonName": "Monkey-Face Orchid",
+      "latinName": "Dracula simia",
+      "biome": "Cloud Forest",
+      "bloomSeason": "Winter",
+      "elevation": "1,200–2,000 m",
+      "conservation": "Vulnerable",
+      "summary": "Epiphytic Andean orchid mounted on porous tree-fern plaques.",
+      "careNotes": "Constant buoyant airflow required; zero direct midday solar exposure."
+    },
+    {
+      "id": "dick-ant",
+      "commonName": "Soft Tree Fern",
+      "latinName": "Dicksonia antarctica",
+      "biome": "Cloud Forest",
+      "bloomSeason": "Year-round",
+      "elevation": "300–1,000 m",
+      "conservation": "Least Concern",
+      "summary": "Ancient fibrous-trunk fern anchoring the mist canyon canopy.",
+      "careNotes": "Crown misted thrice daily to hydrate emerging fiddlehead croziers."
+    },
+    {
+      "id": "med-mag",
+      "commonName": "Chandelier Medinilla",
+      "latinName": "Medinilla magnifica",
+      "biome": "Cloud Forest",
+      "bloomSeason": "Spring",
+      "elevation": "400–1,400 m",
+      "conservation": "Near Threatened",
+      "summary": "Pendulous coral panicles draped along humid understory walkways.",
+      "careNotes": "Coarse bark epiphyte medium with dappled canopy shade."
+    },
+    {
+      "id": "wel-mir",
+      "commonName": "Namib Living Fossil",
+      "latinName": "Welwitschia mirabilis",
+      "biome": "Arid Pavilion",
+      "bloomSeason": "Summer",
+      "elevation": "50–600 m",
+      "conservation": "Near Threatened",
+      "summary": "Millennium-scale gymnosperm bearing only two endlessly growing leaves.",
+      "careNotes": "Ultra-deep 4m mineral taproot column; fog-condensation misting only."
+    },
+    {
+      "id": "pach-lam",
+      "commonName": "Madagascar Palm",
+      "latinName": "Pachypodium lamerei",
+      "biome": "Arid Pavilion",
+      "bloomSeason": "Summer",
+      "elevation": "100–750 m",
+      "conservation": "Least Concern",
+      "summary": "Silver-spined succulent stem storing seasonal monsoon reserves.",
+      "careNotes": "Pumice-dominant mineral substrate; bone-dry dormancy below 14°C."
+    },
+    {
+      "id": "ast-ast",
+      "commonName": "Star Peyote Cactus",
+      "latinName": "Astrophytum asterias",
+      "biome": "Arid Pavilion",
+      "bloomSeason": "Spring",
+      "elevation": "150–400 m",
+      "conservation": "Vulnerable",
+      "summary": "Spineless eight-ribbed dome speckled with trichome scales.",
+      "careNotes": "Protected from overhead splash; bottom-wicked mineral watering."
+    },
+    {
+      "id": "aloe-dic",
+      "commonName": "Quiver Tree",
+      "latinName": "Aloidendron dichotomum",
+      "biome": "Arid Pavilion",
+      "bloomSeason": "Winter",
+      "elevation": "400–1,200 m",
+      "conservation": "Vulnerable",
+      "summary": "Dichotomous branching tree aloe flowering with canary-gold spikes.",
+      "careNotes": "Winter-active growth regime with high-silica granite scree."
+    },
+    {
+      "id": "sax-opp",
+      "commonName": "Purple Mountain Saxifrage",
+      "latinName": "Saxifraga oppositifolia",
+      "biome": "Alpine House",
+      "bloomSeason": "Spring",
+      "elevation": "1,800–4,500 m",
+      "conservation": "Least Concern",
+      "summary": "Tight arctic-alpine cushion carpeting lime-rich scree ledges.",
+      "careNotes": "Sub-surface chilled limestone grit prevents crown rot during thaw."
+    },
+    {
+      "id": "gen-aca",
+      "commonName": "Trumpet Gentian",
+      "latinName": "Gentiana acaulis",
+      "biome": "Alpine House",
+      "bloomSeason": "Spring",
+      "elevation": "1,400–3,000 m",
+      "conservation": "Least Concern",
+      "summary": "Cobalt-bell alpine perennial tuned to intense UV irradiance.",
+      "careNotes": "Requires cool night air exchange and acid-lean granite gravel."
+    },
+    {
+      "id": "leont-alp",
+      "commonName": "Alpine Edelweiss",
+      "latinName": "Leontopodium nivale",
+      "biome": "Alpine House",
+      "bloomSeason": "Summer",
+      "elevation": "1,800–3,200 m",
+      "conservation": "Near Threatened",
+      "summary": "Woolly star-bracts engineered to deflect high-altitude UV radiation.",
+      "careNotes": "Dry winter overhead shelter with brisk cross-ventilation."
+    },
+    {
+      "id": "sold-alp",
+      "commonName": "Alpine Snowbell",
+      "latinName": "Soldanella alpina",
+      "biome": "Alpine House",
+      "bloomSeason": "Winter",
+      "elevation": "1,300–2,800 m",
+      "conservation": "Least Concern",
+      "summary": "Fringed violet bells emerging directly beside melting snowfields.",
+      "careNotes": "Maintained at 4°C winter vernalization prior to early spring display."
+    }
+  ]
+}

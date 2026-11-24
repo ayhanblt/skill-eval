@@ -5,7 +5,8 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONDONTWRITEBYTECODE=1 \
     GIT_CONFIG_GLOBAL=/dev/null \
     GIT_CONFIG_NOSYSTEM=1 \
-    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
+    NODE_PATH=/opt/skilleval-node/node_modules
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
@@ -25,7 +26,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     tesseract-ocr \
     fonts-dejavu-core \
     fonts-liberation \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && ln -sf /usr/lib/postgresql/*/bin/* /usr/local/bin/
 
 # Fixed Python venv inside container for task scripts & verification
 RUN python3 -m venv /opt/skilleval-py \
@@ -36,13 +38,35 @@ RUN python3 -m venv /opt/skilleval-py \
        pypdfium2==4.30.0 \
        pillow==11.0.0 \
        psycopg2-binary==2.9.10 \
-       pytest==8.3.4
+       pytest==8.3.4 \
+       defusedxml==0.7.1
+
+# Pre-baked Node dependencies for offline Remotion (G2) and Playwright + axe-core (G6)
+RUN mkdir -p /opt/skilleval-node && cd /opt/skilleval-node \
+    && npm init -y >/dev/null \
+    && npm install --no-audit --no-fund \
+       remotion@4.0.545 \
+       @remotion/cli@4.0.545 \
+       @remotion/renderer@4.0.545 \
+       @remotion/captions@4.0.545 \
+       @remotion/media@4.0.545 \
+       @remotion/media-utils@4.0.545 \
+       react@18.3.1 \
+       react-dom@18.3.1 \
+       zod@3.24.2 \
+       typescript@5.7.3 \
+       @types/react@18.3.12 \
+       @types/react-dom@18.3.1 \
+       playwright@1.49.1 \
+       axe-core@4.10.2 \
+    && npx remotion browser ensure \
+    && chmod -R a+rX /opt/skilleval-node
 
 # Fixed Claude Code CLI + Playwright Chromium inside container
-RUN npm install -g @anthropic-ai/claude-code@latest playwright@1.49.1 \
+RUN npm install -g @anthropic-ai/claude-code@2.1.330 playwright@1.49.1 \
     && npx playwright install --with-deps chromium
 
-ENV PATH="/opt/skilleval-py/bin:${PATH}"
+ENV PATH="/opt/skilleval-py/bin:/opt/skilleval-node/node_modules/.bin:${PATH}"
 
 # Non-root isolated agent user
 RUN useradd -m -s /bin/bash runner \

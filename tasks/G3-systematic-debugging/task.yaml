@@ -1,0 +1,42 @@
+task_id: G3-systematic-debugging
+archetype: workflow_discipline
+target_skill: systematic-debugging
+visual_review: false
+
+jev_items:
+  - id: g3_root_cause_fixed_in_cache
+    dimension: code_output_maintainability
+    binary: true
+    question: "Do billing_svc/cache.py and billing_svc/tax_engine.py eliminate shared mutable cache aliasing (deepcopy policy isolation + normalized composite (country, quarter) tax cache with defensive copies)?"
+    pass_criteria: "billing_svc/cache.py deep-copies policies across DEFAULT_POLICY, store, and cache, AND billing_svc/tax_engine.py caches by normalized (country, quarter) and returns defensive copies without exempt mutation."
+    fail_criteria: "cache.py uses shallow .copy(), OR tax_engine.py keys cache only by country or returns shared mutable schedule dicts."
+
+  - id: g3_ledger_atomicity_and_idempotency
+    dimension: code_output_maintainability
+    binary: true
+    question: "Do billing_svc/pricing.py and billing_svc/batch_runner.py avoid in-place cache mutation, refund failed and excess ledger credits, and ensure idempotency on duplicate reconciled invoice_ids?"
+    pass_criteria: "pricing.py builds local copies without mutating cached policies/schedules, AND batch_runner.py refunds debited credit on errors AND refunds unused excess ledger credit AND returns idempotent results without double-debiting when a reconciled invoice_id is replayed."
+    fail_criteria: "pricing.py mutates cached objects OR batch_runner.py loses ledger credits on failure/excess OR double-debits credits on duplicate reconciled invoice_id deliveries."
+
+  - id: g3_defense_in_depth_and_reconciler
+    dimension: code_output_maintainability
+    binary: true
+    question: "Are blank/whitespace tenant_id inputs rejected across both webhook ingestion and inner billing layers (cache, ledger, pricing) with country/quarter normalization, while reconciler.py preserves exact integer-cent equality?"
+    pass_criteria: "parse_batch_payload validates/normalizes tenant_id/country/quarter AND inner cache/ledger/pricing layers also reject blank tenant_id with PricingError, AND reconciler.py maintains exact invoice.total_cents == payment.amount_cents without tolerance windows."
+    fail_criteria: "Allows blank/whitespace tenant_id in webhook or inner layers, OR edits reconciler.py to add an abs(...) <= tolerance window."
+
+  - id: g3_diagnosis_documents_chain
+    dimension: code_output_maintainability
+    binary: true
+    question: "Does DIAGNOSIS.md accurately document all four root-cause areas (policy aliasing, tax cache aliasing, ledger rollback/excess + idempotency, defense-in-depth validation) and explain why currency rounding and reconciler tolerance were red herrings?"
+    pass_criteria: "DIAGNOSIS.md explicitly documents policy/pricing aliasing, tax_engine quarter/exempt aliasing, batch_runner ledger rollback/excess/idempotency, and input validation, plus explains why currency.py and reconciler.py were not defects."
+    fail_criteria: "DIAGNOSIS.md is missing, omits core root causes, or misattributes bugs to currency rounding or reconciler precision."
+
+  - id: g3_regression_tests_isolation
+    dimension: code_output_maintainability
+    binary: true
+    question: "Do candidate tests cover cross-tenant/repeat isolation, tax quarter/exempt isolation, ledger rollback & excess refund & idempotency, and defense-in-depth blank-tenant validation?"
+    pass_criteria: "Tests under tests/ assert policy/credit isolation, TaxEngine quarter/exempt isolation, BatchRunner rollback + excess refund + idempotency, and empty-tenant PricingError enforcement across layers."
+    fail_criteria: "Tests omit excess refund, duplicate invoice idempotency, or defense-in-depth validation coverage."
+
+visual_items: []

@@ -8,10 +8,12 @@ import sys
 from collections import Counter
 
 from skilleval.config import build_matrix, load_skill_registry, load_study_spec, project_root
-from skilleval.judge import ensure_blind_mapping, judge_run_with_jev
+from skilleval.grader_utils import verify_task_references
+from skilleval.judge import calibrate_task_anchors, ensure_blind_mapping, judge_run_with_jev
 from skilleval.reporting import generate_reports
 from skilleval.review_ui import generate_blind_review_ui
 from skilleval.runner import (
+    AuthRequiredError,
     QuotaExhaustedError,
     freeze_study,
     grade_study,
@@ -52,6 +54,21 @@ def cmd_validate(args: argparse.Namespace) -> int:
             for req in ("task.yaml", "prompt.md", "grader/grade.py"):
                 if not (tdir / req).is_file():
                     errors.append(f"Task '{tid}' missing {req}")
+            if not (tdir / "starter").is_dir():
+                errors.append(f"Task '{tid}' missing starter/ directory")
+            if not (tdir / "reference" / "gold").is_dir():
+                errors.append(f"Task '{tid}' missing reference/gold/ directory")
+            neg_dir = tdir / "reference" / "negative-cases"
+            negs = [p for p in neg_dir.iterdir() if p.is_dir()] if neg_dir.is_dir() else []
+            if len(negs) < 2:
+                errors.append(f"Task '{tid}' requires >= 2 negative cases, found {len(negs)}")
+            for ndir in negs:
+                if not (ndir / "expected.yaml").is_file():
+                    errors.append(f"Task '{tid}' negative case '{ndir.name}' missing expected.yaml")
+            anc_dir = tdir / "anchors"
+            for req_anc in ("good_1", "good_2", "bad_1", "bad_2"):
+                if not (anc_dir / req_anc / "expected.yaml").is_file():
+                    errors.append(f"Task '{tid}' missing anchors/{req_anc}/expected.yaml")
 
     if errors:
         print("\nValidation failed:", file=sys.stderr)
@@ -100,6 +117,9 @@ def cmd_run(args: argparse.Namespace) -> int:
         )
         print("Status:", json.dumps(st))
         return 0
+    except AuthRequiredError as exc:
+        print(f"[AUTH REQUIRED] {exc}", file=sys.stderr)
+        return 78
     except QuotaExhaustedError as exc:
         print(f"[QUOTA PAUSE] {exc}", file=sys.stderr)
         return 75
@@ -175,6 +195,38 @@ def cmd_status(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_verify_tasks(args: argparse.Namespace) -> int:
+    root = project_root()
+    task_ids = [args.task] if args.task else None
+    all_ok, records = verify_task_references(root, task_ids)
+    for rec in records:
+        tag = "PASS" if rec["ok"] else "FAIL"
+        print(
+            f"[{tag}] {rec['task_id']:26s} | {rec['case']:28s} | "
+            f"score={rec['score']} | gates={rec['gates']}"
+        )
+        for err in rec["errors"]:
+            print(f"       -> {err}", file=sys.stderr)
+    return 0 if all_ok else 1
+
+
+def cmd_calibrate_anchors(args: argparse.Namespace) -> int:
+    root = project_root()
+    task_ids = [args.task] if args.task else None
+    all_ok, records = calibrate_task_anchors(
+        root, task_ids, dry_run=args.dry_run, force=args.force
+    )
+    for rec in records:
+        tag = "OK" if rec["ok"] else "FAIL"
+        probs = ", ".join(
+            f"{it['id']}={it.get('min_prob', it.get('status'))}" for it in rec["items"]
+        )
+        print(f"[{tag}] {rec['task_id']:26s} | {rec['anchor']:8s} | {probs}")
+        for err in rec["errors"]:
+            print(f"       -> {err}", file=sys.stderr)
+    return 0 if all_ok else 1
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="skilleval", description="Agent Skills experimental harness")
     sub = p.add_subparsers(dest="command", required=True)
@@ -231,6 +283,16 @@ def build_parser() -> argparse.ArgumentParser:
     st = sub.add_parser("status", help="Show progress counters for a study")
     st.add_argument("--study", default="main-v1")
     st.set_defaults(func=cmd_status)
+
+    vt = sub.add_parser("verify-tasks", help="Verify all task graders against gold & negative references")
+    vt.add_argument("--task", type=str, default=None, help="Verify a single task ID")
+    vt.set_defaults(func=cmd_verify_tasks)
+
+    ca = sub.add_parser("calibrate-anchors", help="Run 2-pass blind Jev calibration on task anchors")
+    ca.add_argument("--task", type=str, default=None, help="Calibrate a single task ID")
+    ca.add_argument("--dry-run", action="store_true")
+    ca.add_argument("--force", action="store_true", help="Ignore cached Jev anchor responses")
+    ca.set_defaults(func=cmd_calibrate_anchors)
 
     return p
 

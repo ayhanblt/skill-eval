@@ -1,0 +1,239 @@
+diff --git a/pricing_engine/calculator.py b/pricing_engine/calculator.py
+--- a/pricing_engine/calculator.py
++++ b/pricing_engine/calculator.py
+@@ -1,5 +1,150 @@
++from __future__ import annotations
++from datetime import date
++from decimal import Decimal, ROUND_HALF_UP
++from pricing_engine.models import Contract, DiscountRule, InvoiceLineItem, InvoiceQuote, PrepaidCredit, PricingValidationError, SkuCatalogEntry, UsageRecord
++
++CENT = Decimal("0.01")
++ZERO = Decimal("0.00")
++HUNDRED = Decimal("100")
++
++def round_cent(x: Decimal) -> Decimal:
++    return x.quantize(CENT, rounding=ROUND_HALF_UP)
++
++def validate_inputs(contract: Contract, usage: list[UsageRecord]) -> dict[str, int]:
++    if contract.billing_period_days <= 0 or contract.proration_days <= 0 or contract.proration_days > contract.billing_period_days:
++        raise PricingValidationError("invalid proration")
++    if contract.monthly_minimum < ZERO or contract.tax_rate_pct < ZERO or contract.credit_cap_pct < ZERO or contract.credit_cap_pct > HUNDRED:
++        raise PricingValidationError("invalid contract numeric config")
++    total_seg_days = 0
++    for seg in contract.seat_segments:
++        if seg.seats < 0 or seg.monthly_seat_price < ZERO or seg.active_days <= 0:
++            raise PricingValidationError("invalid seat segment")
++        total_seg_days += seg.active_days
++    if total_seg_days > contract.billing_period_days:
++        raise PricingValidationError("excess seat segment days")
++    for adj in contract.adjustments:
++        if not adj.code.strip():
++            raise PricingValidationError("blank adjustment code")
++    for entry in contract.catalog.values():
++        if not entry.tiers or entry.included_units < 0 or entry.tier_mode not in ("GRADUATED", "VOLUME"):
++            raise PricingValidationError("invalid catalog entry")
++        prev = 0
++        for idx, tier in enumerate(entry.tiers):
++            if tier.unit_price < ZERO:
++                raise PricingValidationError("negative price")
++            if tier.up_to is None:
++                if idx != len(entry.tiers) - 1:
++                    raise PricingValidationError("unbounded tier must be last")
++            else:
++                if tier.up_to <= 0 or tier.up_to <= prev:
++                    raise PricingValidationError("non-increasing tiers")
++                prev = tier.up_to
++    for rule in contract.discounts:
++        if rule.value < ZERO or rule.min_subtotal < ZERO or (rule.max_discount_amount is not None and rule.max_discount_amount < ZERO):
++            raise PricingValidationError("negative discount field")
++        if rule.kind == "PCT" and rule.value > HUNDRED:
++            raise PricingValidationError("pct > 100")
++        if rule.starts_on is not None and rule.ends_on is not None and rule.starts_on > rule.ends_on:
++            raise PricingValidationError("invalid discount dates")
++    for credit in contract.credits:
++        if credit.amount < ZERO:
++            raise PricingValidationError("negative credit")
++    aggregated: dict[str, int] = {}
++    for rec in usage:
++        if rec.quantity < 0 or rec.sku not in contract.catalog:
++            raise PricingValidationError("invalid usage")
++        aggregated[rec.sku] = aggregated.get(rec.sku, 0) + rec.quantity
++    return aggregated
++
++def price_sku(entry: SkuCatalogEntry, qty: int) -> Decimal:
++    billable = max(0, qty - entry.included_units)
++    if billable == 0:
++        return ZERO
++    if entry.tier_mode == "VOLUME":
++        for tier in entry.tiers:
++            if tier.up_to is None or billable <= tier.up_to:
++                return round_cent(Decimal(billable) * tier.unit_price)
++        raise PricingValidationError("exceeds bounded tiers")
++    rem, prev, raw = billable, 0, ZERO
++    for tier in entry.tiers:
++        if rem <= 0:
++            break
++        take = rem if tier.up_to is None else min(rem, tier.up_to - prev)
++        raw += Decimal(take) * tier.unit_price
++        rem -= take
++        if tier.up_to is not None:
++            prev = tier.up_to
++    if rem > 0:
++        raise PricingValidationError("exceeds bounded tiers")
++    return round_cent(raw)
++
++def _rule_base(gross: Decimal, items: list[InvoiceLineItem], sku: str | None) -> Decimal:
++    if sku is None:
++        return gross
++    return max(ZERO, min(gross, sum((i.amount for i in items if i.sku == sku), ZERO)))
++
++def _rule_savings(base: Decimal, rule: DiscountRule) -> Decimal:
++    if rule.kind == "FIXED":
++        return min(base, round_cent(rule.value))
++    sav = round_cent(base * rule.value / HUNDRED)
++    if rule.max_discount_amount is not None:
++        sav = min(sav, round_cent(rule.max_discount_amount))
++    return min(base, sav)
++
++def apply_discounts(gross: Decimal, items: list[InvoiceLineItem], rules: tuple[DiscountRule, ...], as_of: date) -> tuple[str | None, Decimal]:
++    elig = [r for r in rules if (r.starts_on is None or r.starts_on <= as_of) and (r.ends_on is None or as_of <= r.ends_on) and gross >= r.min_subtotal]
++    ns = [r for r in elig if not r.stackable]
++    ns_code, ns_sav = (None, ZERO)
++    if ns:
++        ns_sav, ns_code = min([(_rule_savings(_rule_base(gross, items, r.target_sku), r), r.code) for r in ns], key=lambda p: (-p[0], p[1]))
++    rem = max(ZERO, round_cent(gross - ns_sav))
++    st = [r for r in elig if r.stackable]
++    uncapped_pct = min(HUNDRED, sum((r.value for r in st if r.kind == "PCT" and r.target_sku is None and r.max_discount_amount is None), Decimal("0")))
++    if uncapped_pct > ZERO:
++        rem = max(ZERO, round_cent(rem - round_cent(rem * uncapped_pct / HUNDRED)))
++    for r in sorted((r for r in st if r.kind == "PCT" and r.target_sku is None and r.max_discount_amount is not None), key=lambda x: x.code):
++        rem = max(ZERO, round_cent(rem - _rule_savings(rem, r)))
++    for r in sorted((r for r in st if r.kind == "PCT" and r.target_sku is not None), key=lambda x: x.code):
++        rem = max(ZERO, round_cent(rem - _rule_savings(min(rem, _rule_base(gross, items, r.target_sku)), r)))
++    fixed_sum = ZERO
++    for r in st:
++        if r.kind == "FIXED":
++            fixed_sum += min(_rule_base(gross, items, r.target_sku), round_cent(r.value)) if r.target_sku is not None else round_cent(r.value)
++    return ns_code, max(ZERO, round_cent(rem - fixed_sum))
++
++def apply_credits(post_disc: Decimal, credits: tuple[PrepaidCredit, ...], as_of: date, cap_pct: Decimal) -> tuple[Decimal, tuple[PrepaidCredit, ...]]:
++    valid = sorted((c for c in credits if c.amount > ZERO and c.expires_on >= as_of), key=lambda c: (c.expires_on, c.credit_id))
++    need = min(post_disc, round_cent(post_disc * cap_pct / HUNDRED))
++    applied, rem = ZERO, []
++    for c in valid:
++        if need <= ZERO:
++            rem.append(c)
++            continue
++        use = min(need, round_cent(c.amount))
++        applied = round_cent(applied + use)
++        need = round_cent(need - use)
++        left = round_cent(c.amount - use)
++        if left > ZERO:
++            rem.append(PrepaidCredit(c.credit_id, left, c.expires_on))
++    return applied, tuple(rem)
++
++def _compute_tax(contract: Contract, gross: Decimal, post_cred: Decimal, items: list[InvoiceLineItem]) -> tuple[Decimal, Decimal]:
++    raw_tax = max(ZERO, min(gross, sum((i.amount for i in items if i.taxable), ZERO)))
++    if contract.tax_exempt or gross == ZERO or raw_tax == ZERO or contract.tax_rate_pct == ZERO:
++        return ZERO, ZERO
++    net_tax = round_cent(post_cred * raw_tax / gross)
++    tax_amt = round_cent(net_tax * contract.tax_rate_pct / HUNDRED)
++    return net_tax, tax_amt
++
++def calculate_invoice(contract: Contract, usage: list[UsageRecord], *, as_of: date) -> InvoiceQuote:
++    agg = validate_inputs(contract, usage)
++    items = [
++        InvoiceLineItem(sku, agg[sku], price_sku(contract.catalog[sku], agg[sku]), contract.catalog[sku].taxable)
++        for sku in sorted(agg)
++    ]
++    for i, s in enumerate(contract.seat_segments, 1):
++        amt = round_cent(Decimal(s.seats) * s.monthly_seat_price * Decimal(s.active_days) / Decimal(contract.billing_period_days))
++        items.append(InvoiceLineItem(f"SEAT_PRORATION_{i}", s.seats, amt, s.taxable))
++    usage_sub = round_cent(sum((i.amount for i in items), ZERO))
++    adj_sum = ZERO
++    for a in contract.adjustments:
++        amt = round_cent(a.amount)
++        adj_sum += amt
++        items.append(InvoiceLineItem(f"ADJ_{a.code}", 1, amt, a.taxable))
++    pre_min = max(ZERO, round_cent(usage_sub + adj_sum))
++    prorated_min = round_cent(contract.monthly_minimum * Decimal(contract.proration_days) / Decimal(contract.billing_period_days))
++    true_up = round_cent(prorated_min - pre_min) if pre_min < prorated_min else ZERO
++    if true_up > ZERO:
++        items.append(InvoiceLineItem("MINIMUM_COMMIT_TRUE_UP", 1, true_up, True))
++    gross = max(ZERO, round_cent(pre_min + true_up))
++    ns_code, post_disc = apply_discounts(gross, items, contract.discounts, as_of)
++    credits_applied, rem_creds = apply_credits(post_disc, contract.credits, as_of, contract.credit_cap_pct)
++    post_cred = round_cent(post_disc - credits_applied)
++    net_tax, tax_amt = _compute_tax(contract, gross, post_cred, items)
++    return InvoiceQuote(
++        contract_id=contract.contract_id,
++        line_items=tuple(items),
++        usage_subtotal=usage_sub,
++        minimum_true_up=true_up,
++        gross_subtotal=gross,
++        non_stackable_discount_code=ns_code,
++        discount_total=round_cent(gross - post_disc),
++        post_discount_subtotal=post_disc,
++        credits_applied=credits_applied,
++        remaining_credits=rem_creds,
++        net_taxable_subtotal=net_tax,
++        tax_amount=tax_amt,
++        total_due=round_cent(post_cred + tax_amt),
++    )
+diff --git a/tests/test_pricing_behaviors.py b/tests/test_pricing_behaviors.py
+new file mode 100644
+--- /dev/null
++++ b/tests/test_pricing_behaviors.py
+@@ -0,0 +1,52 @@
++import copy
++from datetime import date
++from decimal import Decimal
++import pytest
++from pricing_engine.calculator import calculate_invoice
++from pricing_engine.models import Adjustment, Contract, DiscountRule, PrepaidCredit, PricingValidationError, SeatSegment, SkuCatalogEntry, UsageRecord, VolumeTier
++
++def _cat():
++    return {
++        "API": SkuCatalogEntry("API", (VolumeTier(1000, Decimal("0.10")), VolumeTier(None, Decimal("0.08"))), taxable=True),
++        "SVC": SkuCatalogEntry("SVC", (VolumeTier(None, Decimal("25.00")),), taxable=False),
++    }
++
++def test_graduated_volume_included_units_and_half_up():
++    cat = {"V": SkuCatalogEntry("V", (VolumeTier(100, Decimal("0.20")), VolumeTier(None, Decimal("0.10"))), tier_mode="VOLUME", included_units=50)}
++    assert calculate_invoice(Contract("c1", cat), [UsageRecord("V", 200)], as_of=date(2026, 6, 1)).line_items[0].amount == Decimal("15.00")
++    assert calculate_invoice(Contract("c2", {"O": SkuCatalogEntry("O", (VolumeTier(None, Decimal("1.005")),))}), [UsageRecord("O", 5)], as_of=date(2026, 6, 1)).usage_subtotal == Decimal("5.03")
++
++def test_seat_segments_proration_and_adjustments_before_minimum():
++    c = Contract("c3", _cat(), billing_period_days=30, proration_days=10, monthly_minimum=Decimal("300.00"), seat_segments=(SeatSegment(1, Decimal("10.05"), 1), SeatSegment(1, Decimal("10.05"), 1)), adjustments=(Adjustment("SLA", Decimal("-40.00")),))
++    q = calculate_invoice(c, [UsageRecord("API", 800)], as_of=date(2026, 6, 1))
++    assert q.usage_subtotal == Decimal("80.68")
++    assert q.minimum_true_up == Decimal("59.32")
++
++def test_discount_min_subtotal_target_sku_cap_and_tiebreak():
++    c = Contract("c4", _cat(), discounts=(
++        DiscountRule("B_CAP", "PCT", Decimal("50"), max_discount_amount=Decimal("15.00")),
++        DiscountRule("A_EQUAL", "FIXED", Decimal("15.00")),
++        DiscountRule("MIN_200", "FIXED", Decimal("25.00"), min_subtotal=Decimal("200.00")),
++        DiscountRule("SVC_S", "PCT", Decimal("10"), stackable=True, target_sku="SVC"),
++    ))
++    q = calculate_invoice(c, [UsageRecord("API", 1000), UsageRecord("SVC", 4)], as_of=date(2026, 6, 1))
++    assert q.non_stackable_discount_code == "MIN_200"
++    assert q.discount_total == Decimal("35.00")
++
++def test_fifo_credits_same_day_expiry_credit_id_tiebreak_and_cap():
++    c = Contract("c5", _cat(), credit_cap_pct=Decimal("40"), credits=(
++        PrepaidCredit("expired", Decimal("99.00"), date(2026, 5, 31)),
++        PrepaidCredit("cb", Decimal("50.00"), date(2026, 6, 1)),
++        PrepaidCredit("ca", Decimal("50.00"), date(2026, 6, 1)),
++    ))
++    q = calculate_invoice(c, [UsageRecord("API", 1000)], as_of=date(2026, 6, 1))
++    assert q.credits_applied == Decimal("40.00")
++    assert q.remaining_credits[0] == PrepaidCredit("ca", Decimal("10.00"), date(2026, 6, 1))
++
++def test_negative_taxable_adjustment_and_immutability_and_validations():
++    c = Contract("c6", _cat(), adjustments=(Adjustment("NEG", Decimal("-50.00"), taxable=True),), tax_rate_pct=Decimal("10.00"))
++    snap = copy.deepcopy(c)
++    q = calculate_invoice(c, [UsageRecord("API", 1000), UsageRecord("SVC", 4)], as_of=date(2026, 6, 1))
++    assert c == snap and q.net_taxable_subtotal == Decimal("50.00") and q.tax_amount == Decimal("5.00")
++    with pytest.raises(PricingValidationError): calculate_invoice(Contract("b", _cat(), credit_cap_pct=Decimal("101")), [], as_of=date(2026, 6, 1))
++    with pytest.raises(PricingValidationError): calculate_invoice(c, [UsageRecord("API", -1)], as_of=date(2026, 6, 1))

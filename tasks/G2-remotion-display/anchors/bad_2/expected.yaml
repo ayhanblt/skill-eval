@@ -1,0 +1,6 @@
+expected:
+  g2_frame_driven_motion: fail
+  g2_scene_sequencing: fail
+  g2_zod_parameterized_props: fail
+  g2_audio_and_captions_sync: fail
+  g2_modular_video_architecture: fail

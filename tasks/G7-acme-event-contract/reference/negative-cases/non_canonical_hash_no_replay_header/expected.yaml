@@ -1,0 +1,4 @@
+must_fail_gates:
+  - G2_CRITICAL_CORRECTNESS
+max_product_score: 5.0
+note: "Hashes raw uncanonical bytes (breaks reordered JSON replay), omits X-Acme-Replayed header, and skips audit on rejections."

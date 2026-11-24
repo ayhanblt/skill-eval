@@ -1,0 +1,1018 @@
+--- a/site/index.html
++++ b/site/index.html
+@@ -3,14 +3,135 @@
+ <head>
+   <meta charset="utf-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1">
+-  <title>Meridian Botanical Conservatory</title>
++  <title>Meridian Botanical Conservatory: Seasonal Almanac</title>
+   <link rel="stylesheet" href="./styles.css">
+ </head>
+ <body>
+-  <main>
+-    <h1>Meridian Botanical Conservatory</h1>
+-    <p>Exhibition almanac placeholder.</p>
++  <header class="site-header">
++    <div class="header-inner">
++      <div class="brand-mark">Meridian Glasshouses, founded 1928</div>
++      <nav aria-label="Primary sections" class="header-nav">
++        <a href="#almanac">Specimen index</a>
++        <a href="#compare-drawer">Field guide comparison</a>
++        <a href="#visit-pass">Timed entry</a>
++      </nav>
++    </div>
++    <div class="hero-band">
++      <h1>Meridian Botanical Conservatory</h1>
++      <p class="hero-lead">Living alpine, arid, and montane cloud-forest collections calibrated across three architectural glasshouses.</p>
++    </div>
++  </header>
++
++  <main id="almanac" class="almanac-shell">
++    <aside class="telemetry-rail" aria-label="Glasshouse climate telemetry">
++      <section class="panel telemetry-panel" aria-live="polite">
++        <h2>Glasshouse Telemetry</h2>
++        <p id="telemetry-biome" class="telemetry-biome">All Biomes</p>
++        <dl class="telemetry-metrics">
++          <div>
++            <dt>Ambient temp</dt>
++            <dd id="telemetry-temp">7.5°C – 29.0°C</dd>
++          </div>
++          <div>
++            <dt>Humidity</dt>
++            <dd id="telemetry-humidity">24% – 88% RH</dd>
++          </div>
++          <div>
++            <dt>Irrigation cycle</dt>
++            <dd id="telemetry-misting">Microclimate scheduled</dd>
++          </div>
++        </dl>
++        <p id="telemetry-note" class="telemetry-note">Select a pavilion to inspect real-time misting, thermal mass, and geothermal cooling conditions.</p>
++      </section>
++
++      <section id="visit-pass" class="panel pass-panel">
++        <h2>Timed-Entry Visit Pass</h2>
++        <form id="pass-form" novalidate>
++          <div class="field">
++            <label for="visit-date">Preferred visit date</label>
++            <input id="visit-date" name="visitDate" type="date" required>
++          </div>
++          <div class="field">
++            <label for="pass-tier">Conservatory pass tier</label>
++            <select id="pass-tier" name="tier"></select>
++          </div>
++          <div class="field">
++            <label for="visitor-count">Visitors (1–8)</label>
++            <input id="visitor-count" name="visitors" type="number" min="1" max="8" value="2" required>
++          </div>
++          <div id="pass-error" class="form-error" role="alert" hidden></div>
++          <button type="submit" class="btn-primary">Calculate visit pass</button>
++        </form>
++        <div id="pass-summary" class="pass-summary" data-pass-summary hidden aria-live="polite"></div>
++      </section>
++    </aside>
++
++    <section class="catalog-column" aria-label="Botanical specimen catalog">
++      <div class="controls-bar">
++        <div class="biome-filters" role="group" aria-label="Filter specimens by biome">
++          <button type="button" class="filter-btn active" data-biome="All" aria-pressed="true">All</button>
++          <button type="button" class="filter-btn" data-biome="Cloud Forest" aria-pressed="false">Cloud Forest</button>
++          <button type="button" class="filter-btn" data-biome="Arid Pavilion" aria-pressed="false">Arid Pavilion</button>
++          <button type="button" class="filter-btn" data-biome="Alpine House" aria-pressed="false">Alpine House</button>
++        </div>
++        <div class="search-controls">
++          <div class="field inline-field">
++            <label for="specimen-search">Search species</label>
++            <input id="specimen-search" type="search" placeholder="Name, Latin binomial, or note">
++          </div>
++          <div class="field inline-field">
++            <label for="bloom-filter">Bloom season</label>
++            <select id="bloom-filter">
++              <option value="All">All seasons</option>
++              <option value="Spring">Spring</option>
++              <option value="Summer">Summer</option>
++              <option value="Autumn">Autumn</option>
++              <option value="Winter">Winter</option>
++              <option value="Year-round">Year-round</option>
++            </select>
++          </div>
++        </div>
++      </div>
++
++      <section id="compare-drawer" class="compare-drawer" data-compare-drawer aria-label="Field guide comparison" aria-live="polite" hidden>
++        <div class="compare-header">
++          <div>
++            <h2>Field Guide Comparison</h2>
++            <p id="compare-status" class="compare-status">0 of 3 specimens pinned for side-by-side review.</p>
++          </div>
++          <button type="button" id="compare-clear-btn" class="btn-secondary" data-compare-clear>Clear comparison</button>
++        </div>
++        <div id="compare-slots" class="compare-slots"></div>
++      </section>
++
++      <div id="specimen-grid" class="specimen-grid"></div>
++
++      <div id="empty-state" class="empty-state" data-empty-state hidden>
++        <h3>No matching specimens in this filter</h3>
++        <p>Clear the species query or switch back to all glasshouse biomes.</p>
++        <button type="button" id="reset-filters-btn" class="btn-secondary">Reset filters</button>
++      </div>
++    </section>
+   </main>
++
++  <dialog id="specimen-dialog" class="specimen-dialog" aria-labelledby="dialog-title">
++    <div class="dialog-header">
++      <div>
++        <p id="dialog-biome" class="dialog-kicker"></p>
++        <h2 id="dialog-title"></h2>
++        <p id="dialog-latin" class="latin-sub"></p>
++      </div>
++      <button type="button" id="dialog-close" class="btn-close" aria-label="Close specimen details">Close dossier</button>
++    </div>
++    <dl class="dialog-specs">
++      <div><dt>Elevation</dt><dd id="dialog-elevation"></dd></div>
++      <div><dt>Bloom season</dt><dd id="dialog-bloom"></dd></div>
++      <div><dt>Conservation</dt><dd id="dialog-conservation"></dd></div>
++    </dl>
++    <p id="dialog-summary"></p>
++    <p id="dialog-care" class="care-note"></p>
++  </dialog>
++
+   <script src="./app.js" defer></script>
+ </body>
+ </html>
+--- a/site/styles.css
++++ b/site/styles.css
+@@ -1,4 +1,532 @@
++:root {
++  --bg-mineral: #f3f7f6;
++  --bg-celadon: #e4eeeb;
++  --bg-surface: #ffffff;
++  --ink-slate: #102522;
++  --ink-muted: #405954;
++  --accent-emerald: #175c50;
++  --accent-gentian: #384382;
++  --rule-glass: #bfd2cd;
++  --focus-ring: #384382;
++  --font-display: "Liberation Serif", Georgia, "Times New Roman", serif;
++  --font-body: "Liberation Sans", system-ui, -apple-system, sans-serif;
++}
++
++*,
++*::before,
++*::after {
++  box-sizing: border-box;
++}
++
+ body {
+   margin: 0;
+-  font-family: sans-serif;
+-}
++  background-color: var(--bg-mineral);
++  color: var(--ink-slate);
++  font-family: var(--font-body);
++  font-size: 16px;
++  line-height: 1.58;
++}
++
++:focus-visible {
++  outline: 3px solid var(--focus-ring);
++  outline-offset: 2px;
++}
++
++.site-header {
++  background-color: var(--ink-slate);
++  color: #f3f7f6;
++  border-bottom: 4px solid var(--accent-gentian);
++  padding: 20px clamp(16px, 4vw, 48px) 34px;
++}
++
++.header-inner {
++  max-width: 1320px;
++  margin: 0 auto 22px;
++  display: flex;
++  justify-content: space-between;
++  align-items: center;
++  flex-wrap: wrap;
++  gap: 12px;
++  font-size: 0.94rem;
++}
++
++.brand-mark {
++  color: #cde0db;
++  font-weight: 600;
++}
++
++.header-nav {
++  display: flex;
++  flex-wrap: wrap;
++  gap: 20px;
++}
++
++.header-nav a {
++  color: #f3f7f6;
++  text-decoration: none;
++  font-weight: 600;
++  border-bottom: 1px solid transparent;
++}
++
++.header-nav a:hover {
++  border-bottom-color: #f3f7f6;
++}
++
++.hero-band {
++  max-width: 1320px;
++  margin: 0 auto;
++}
++
++.hero-band h1 {
++  margin: 0 0 10px;
++  font-family: var(--font-display);
++  font-size: clamp(2.1rem, 3.8vw, 3.25rem);
++  font-weight: 700;
++  line-height: 1.1;
++  letter-spacing: -0.015em;
++}
++
++.hero-lead {
++  margin: 0;
++  max-width: 64ch;
++  color: #d6e6e2;
++  font-size: 1.06rem;
++}
++
++.almanac-shell {
++  max-width: 1320px;
++  margin: 28px auto 56px;
++  padding: 0 clamp(16px, 4vw, 48px);
++  display: grid;
++  grid-template-columns: 330px minmax(0, 1fr);
++  gap: 28px;
++  align-items: start;
++}
++
++.telemetry-rail {
++  display: grid;
++  gap: 20px;
++}
++
++.panel {
++  background-color: var(--bg-surface);
++  border: 1px solid var(--rule-glass);
++  border-top: 3px solid var(--accent-emerald);
++  padding: 20px;
++}
++
++.panel h2 {
++  margin: 0 0 12px;
++  font-family: var(--font-display);
++  font-size: 1.28rem;
++}
++
++.telemetry-biome {
++  margin: 0 0 14px;
++  font-weight: 700;
++  color: var(--accent-emerald);
++}
++
++.telemetry-metrics {
++  margin: 0 0 14px;
++  display: grid;
++  gap: 10px;
++  border-top: 1px solid var(--rule-glass);
++  padding-top: 12px;
++}
++
++.telemetry-metrics div {
++  display: flex;
++  justify-content: space-between;
++  gap: 12px;
++}
++
++.telemetry-metrics dt {
++  color: var(--ink-muted);
++  font-size: 0.9rem;
++}
++
++.telemetry-metrics dd {
++  margin: 0;
++  font-weight: 700;
++  font-variant-numeric: tabular-nums;
++  text-align: right;
++}
++
++.telemetry-note {
++  margin: 0;
++  max-width: 58ch;
++  font-size: 0.92rem;
++  color: var(--ink-muted);
++}
++
++.field {
++  display: grid;
++  gap: 5px;
++  margin-bottom: 12px;
++}
++
++.field label {
++  font-size: 0.89rem;
++  font-weight: 700;
++  color: var(--ink-slate);
++}
++
++.field input,
++.field select {
++  width: 100%;
++  padding: 9px 10px;
++  border: 1px solid #86a39c;
++  background-color: #ffffff;
++  color: var(--ink-slate);
++  font: inherit;
++  border-radius: 3px;
++}
++
++.btn-primary,
++.btn-secondary,
++.btn-close {
++  font: inherit;
++  font-weight: 700;
++  padding: 10px 16px;
++  cursor: pointer;
++  border-radius: 3px;
++  border: 1px solid var(--ink-slate);
++}
++
++.btn-primary {
++  width: 100%;
++  background-color: var(--accent-emerald);
++  color: #ffffff;
++  border-color: var(--accent-emerald);
++}
++
++.btn-secondary,
++.btn-close {
++  background-color: var(--bg-celadon);
++  color: var(--ink-slate);
++}
++
++.form-error {
++  margin: 8px 0 12px;
++  padding: 10px 12px;
++  background-color: #fdf2f2;
++  border-left: 4px solid #b42318;
++  color: #8a1911;
++  font-size: 0.9rem;
++  font-weight: 600;
++}
++
++.pass-summary {
++  margin-top: 14px;
++  padding: 12px;
++  background-color: var(--bg-celadon);
++  border-left: 4px solid var(--accent-emerald);
++  font-size: 0.92rem;
++}
++
++.controls-bar {
++  display: flex;
++  flex-wrap: wrap;
++  justify-content: space-between;
++  gap: 14px;
++  align-items: flex-end;
++  padding-bottom: 18px;
++  border-bottom: 1px solid var(--rule-glass);
++  margin-bottom: 20px;
++}
++
++.biome-filters {
++  display: flex;
++  flex-wrap: wrap;
++  gap: 8px;
++}
++
++.filter-btn {
++  padding: 8px 14px;
++  border: 1px solid var(--rule-glass);
++  background-color: var(--bg-surface);
++  color: var(--ink-slate);
++  font: inherit;
++  font-weight: 600;
++  cursor: pointer;
++  border-radius: 3px;
++}
++
++.filter-btn.active,
++.filter-btn[aria-pressed="true"] {
++  background-color: var(--ink-slate);
++  color: #ffffff;
++  border-color: var(--ink-slate);
++}
++
++.search-controls {
++  display: flex;
++  flex-wrap: wrap;
++  gap: 12px;
++}
++
++.inline-field {
++  margin-bottom: 0;
++  min-width: 180px;
++}
++
++.compare-drawer {
++  background-color: var(--bg-surface);
++  border: 1px solid var(--accent-gentian);
++  border-left: 5px solid var(--accent-gentian);
++  padding: 18px 20px;
++  margin-bottom: 22px;
++}
++
++.compare-header {
++  display: flex;
++  justify-content: space-between;
++  align-items: flex-start;
++  flex-wrap: wrap;
++  gap: 12px;
++  margin-bottom: 14px;
++}
++
++.compare-header h2 {
++  margin: 0 0 2px;
++  font-family: var(--font-display);
++  font-size: 1.22rem;
++}
++
++.compare-status {
++  margin: 0;
++  color: var(--ink-muted);
++  font-size: 0.9rem;
++}
++
++.compare-slots {
++  display: grid;
++  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
++  gap: 14px;
++}
++
++.compare-card {
++  background-color: var(--bg-mineral);
++  border: 1px solid var(--rule-glass);
++  padding: 12px 14px;
++}
++
++.compare-card h3 {
++  margin: 0 0 2px;
++  font-family: var(--font-display);
++  font-size: 1.04rem;
++}
++
++.compare-meta {
++  margin: 8px 0 10px;
++  display: grid;
++  gap: 4px;
++  font-size: 0.86rem;
++}
++
++.compare-meta div {
++  display: flex;
++  justify-content: space-between;
++  gap: 8px;
++}
++
++.compare-meta dt {
++  color: var(--ink-muted);
++}
++
++.compare-meta dd {
++  margin: 0;
++  font-weight: 700;
++}
++
++.specimen-grid {
++  display: grid;
++  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
++  gap: 18px;
++}
++
++.specimen-card {
++  background-color: var(--bg-surface);
++  border: 1px solid var(--rule-glass);
++  display: flex;
++  flex-direction: column;
++  justify-content: space-between;
++  padding: 18px;
++  transition: border-color 140ms ease;
++}
++
++.specimen-card:hover {
++  border-color: var(--accent-emerald);
++}
++
++.specimen-biome {
++  margin: 0 0 6px;
++  color: var(--accent-gentian);
++  font-size: 0.85rem;
++  font-weight: 700;
++}
++
++.specimen-card h3 {
++  margin: 0 0 2px;
++  font-family: var(--font-display);
++  font-size: 1.22rem;
++}
++
++.latin-name {
++  margin: 0 0 10px;
++  font-style: italic;
++  color: var(--ink-muted);
++  font-size: 0.94rem;
++}
++
++.specimen-summary {
++  margin: 0 0 14px;
++  max-width: 60ch;
++  font-size: 0.93rem;
++}
++
++.card-footer {
++  border-top: 1px solid var(--rule-glass);
++  padding-top: 12px;
++  display: grid;
++  gap: 10px;
++}
++
++.bloom-tag {
++  font-size: 0.84rem;
++  color: var(--ink-muted);
++  font-weight: 600;
++}
++
++.card-actions {
++  display: flex;
++  flex-wrap: wrap;
++  gap: 8px;
++}
++
++.inspect-btn,
++.compare-btn {
++  padding: 6px 11px;
++  border: 1px solid var(--rule-glass);
++  font: inherit;
++  font-size: 0.85rem;
++  font-weight: 700;
++  cursor: pointer;
++  border-radius: 3px;
++}
++
++.inspect-btn {
++  background-color: var(--bg-celadon);
++  color: var(--ink-slate);
++}
++
++.compare-btn {
++  background-color: var(--bg-surface);
++  color: var(--ink-slate);
++}
++
++.compare-btn[aria-pressed="true"] {
++  background-color: var(--accent-gentian);
++  color: #ffffff;
++  border-color: var(--accent-gentian);
++}
++
++.empty-state {
++  background-color: var(--bg-surface);
++  border: 1px solid var(--rule-glass);
++  padding: 28px;
++  text-align: center;
++}
++
++.empty-state p {
++  max-width: 56ch;
++  margin: 0 auto 16px;
++}
++
++.specimen-dialog {
++  max-width: 560px;
++  width: calc(100% - 32px);
++  border: 2px solid var(--ink-slate);
++  background-color: var(--bg-surface);
++  color: var(--ink-slate);
++  padding: 24px;
++}
++
++.specimen-dialog::backdrop {
++  background-color: rgba(16, 37, 34, 0.55);
++}
++
++.dialog-header {
++  display: flex;
++  justify-content: space-between;
++  align-items: flex-start;
++  gap: 16px;
++}
++
++.dialog-kicker {
++  margin: 0 0 4px;
++  color: var(--accent-gentian);
++  font-weight: 700;
++  font-size: 0.86rem;
++}
++
++.dialog-header h2 {
++  margin: 0 0 4px;
++  font-family: var(--font-display);
++}
++
++.latin-sub {
++  margin: 0 0 14px;
++  font-style: italic;
++  color: var(--ink-muted);
++}
++
++.dialog-specs {
++  display: grid;
++  grid-template-columns: repeat(3, minmax(0, 1fr));
++  gap: 10px;
++  padding: 12px 0;
++  border-top: 1px solid var(--rule-glass);
++  border-bottom: 1px solid var(--rule-glass);
++}
++
++.dialog-specs dt {
++  font-size: 0.82rem;
++  color: var(--ink-muted);
++}
++
++.dialog-specs dd {
++  margin: 2px 0 0;
++  font-weight: 700;
++}
++
++.care-note {
++  background-color: var(--bg-celadon);
++  padding: 12px;
++  max-width: 60ch;
++  border-left: 3px solid var(--accent-emerald);
++}
++
++@media (max-width: 960px) {
++  .almanac-shell {
++    grid-template-columns: 1fr;
++  }
++  .search-controls,
++  .inline-field {
++    width: 100%;
++  }
++  .dialog-specs {
++    grid-template-columns: 1fr;
++  }
++}
++
++@media (prefers-reduced-motion: reduce) {
++  *,
++  *::before,
++  *::after {
++    transition: none !important;
++    animation: none !important;
++    scroll-behavior: auto !important;
++  }
++}
+--- a/site/app.js
++++ b/site/app.js
+@@ -1 +1,335 @@
+-// Implement conservatory interactive almanac in site/app.js.
++(() => {
++  const MAX_COMPARE = 3;
++  const state = {
++    data: null,
++    biome: "All",
++    query: "",
++    bloom: "All",
++    compareIds: [],
++    lastTrigger: null,
++  };
++
++  const gridEl = document.getElementById("specimen-grid");
++  const emptyEl = document.getElementById("empty-state");
++  const searchEl = document.getElementById("specimen-search");
++  const bloomEl = document.getElementById("bloom-filter");
++  const resetBtn = document.getElementById("reset-filters-btn");
++  const dialogEl = document.getElementById("specimen-dialog");
++  const closeBtn = document.getElementById("dialog-close");
++  const compareDrawerEl = document.getElementById("compare-drawer");
++  const compareSlotsEl = document.getElementById("compare-slots");
++  const compareStatusEl = document.getElementById("compare-status");
++  const compareClearBtn = document.getElementById("compare-clear-btn");
++  const formEl = document.getElementById("pass-form");
++  const tierSelectEl = document.getElementById("pass-tier");
++  const errorEl = document.getElementById("pass-error");
++  const summaryEl = document.getElementById("pass-summary");
++
++  function cleanSeparator(text) {
++    return String(text || "").replace(/\s*\u00b7\s*/g, ", ");
++  }
++
++  function updateTelemetry() {
++    if (!state.data) return;
++    const biomeEl = document.getElementById("telemetry-biome");
++    const tempEl = document.getElementById("telemetry-temp");
++    const humEl = document.getElementById("telemetry-humidity");
++    const mistEl = document.getElementById("telemetry-misting");
++    const noteEl = document.getElementById("telemetry-note");
++
++    if (state.biome === "All") {
++      biomeEl.textContent = "All Biomes";
++      tempEl.textContent = "7.5°C – 29.0°C";
++      humEl.textContent = "24% – 88% RH";
++      mistEl.textContent = "Microclimate scheduled";
++      noteEl.textContent = "Select a pavilion to inspect real-time misting, thermal mass, and geothermal cooling conditions.";
++      return;
++    }
++
++    const match = state.data.biomes.find((b) => b.id === state.biome);
++    if (match) {
++      biomeEl.textContent = match.id;
++      tempEl.textContent = match.temperature_c;
++      humEl.textContent = match.humidity_pct;
++      mistEl.textContent = cleanSeparator(match.misting_schedule);
++      noteEl.textContent = match.architectural_note;
++    }
++  }
++
++  function renderCompareDrawer() {
++    if (!state.data) return;
++    const selected = state.compareIds
++      .map((id) => state.data.specimens.find((s) => s.id === id))
++      .filter(Boolean);
++
++    compareSlotsEl.textContent = "";
++    if (selected.length === 0) {
++      compareDrawerEl.hidden = true;
++      compareStatusEl.textContent = "0 of 3 specimens pinned for side-by-side review.";
++      return;
++    }
++
++    compareDrawerEl.hidden = false;
++    compareStatusEl.textContent = `${selected.length} of ${MAX_COMPARE} specimens pinned for side-by-side study.`;
++
++    const frag = document.createDocumentFragment();
++    for (const item of selected) {
++      const box = document.createElement("article");
++      box.className = "compare-card";
++
++      const heading = document.createElement("h3");
++      heading.textContent = item.commonName;
++
++      const latin = document.createElement("p");
++      latin.className = "latin-name";
++      latin.textContent = item.latinName;
++
++      const meta = document.createElement("dl");
++      meta.className = "compare-meta";
++      for (const [label, val] of [
++        ["Biome", item.biome],
++        ["Elevation", item.elevation],
++        ["Bloom season", item.bloomSeason],
++        ["Conservation", item.conservation],
++      ]) {
++        const row = document.createElement("div");
++        const dt = document.createElement("dt");
++        dt.textContent = label;
++        const dd = document.createElement("dd");
++        dd.textContent = val;
++        row.append(dt, dd);
++        meta.appendChild(row);
++      }
++
++      const removeBtn = document.createElement("button");
++      removeBtn.type = "button";
++      removeBtn.className = "compare-btn";
++      removeBtn.textContent = "Remove specimen";
++      removeBtn.addEventListener("click", () => toggleCompare(item.id));
++
++      box.append(heading, latin, meta, removeBtn);
++      frag.appendChild(box);
++    }
++    compareSlotsEl.appendChild(frag);
++  }
++
++  function toggleCompare(specimenId) {
++    const idx = state.compareIds.indexOf(specimenId);
++    if (idx >= 0) {
++      state.compareIds.splice(idx, 1);
++    } else {
++      if (state.compareIds.length >= MAX_COMPARE) {
++        state.compareIds.shift();
++      }
++      state.compareIds.push(specimenId);
++    }
++    renderCompareDrawer();
++    renderSpecimens();
++  }
++
++  function openSpecimenDialog(specimen, triggerEl) {
++    state.lastTrigger = triggerEl;
++    document.getElementById("dialog-biome").textContent = specimen.biome;
++    document.getElementById("dialog-title").textContent = specimen.commonName;
++    document.getElementById("dialog-latin").textContent = specimen.latinName;
++    document.getElementById("dialog-elevation").textContent = specimen.elevation;
++    document.getElementById("dialog-bloom").textContent = specimen.bloomSeason;
++    document.getElementById("dialog-conservation").textContent = specimen.conservation;
++    document.getElementById("dialog-summary").textContent = specimen.summary;
++    document.getElementById("dialog-care").textContent = specimen.careNotes;
++    dialogEl.showModal();
++    closeBtn.focus();
++  }
++
++  function closeDialog() {
++    if (dialogEl.open) {
++      dialogEl.close();
++    }
++    if (state.lastTrigger && typeof state.lastTrigger.focus === "function") {
++      state.lastTrigger.focus();
++    }
++  }
++
++  function renderSpecimens() {
++    if (!state.data) return;
++    const q = state.query.trim().toLowerCase();
++    const visible = state.data.specimens.filter((item) => {
++      if (state.biome !== "All" && item.biome !== state.biome) return false;
++      if (state.bloom !== "All" && item.bloomSeason !== state.bloom) return false;
++      if (q) {
++        const hay = `${item.commonName} ${item.latinName} ${item.summary} ${item.biome}`.toLowerCase();
++        if (!hay.includes(q)) return false;
++      }
++      return true;
++    });
++
++    gridEl.textContent = "";
++    if (visible.length === 0) {
++      emptyEl.hidden = false;
++      return;
++    }
++    emptyEl.hidden = true;
++
++    const frag = document.createDocumentFragment();
++    for (const item of visible) {
++      const card = document.createElement("article");
++      card.className = "specimen-card";
++      card.setAttribute("data-specimen-card", item.id);
++
++      const top = document.createElement("div");
++      const kicker = document.createElement("p");
++      kicker.className = "specimen-biome";
++      kicker.textContent = item.biome;
++
++      const title = document.createElement("h3");
++      title.textContent = item.commonName;
++
++      const latin = document.createElement("p");
++      latin.className = "latin-name";
++      latin.textContent = item.latinName;
++
++      const sum = document.createElement("p");
++      sum.className = "specimen-summary";
++      sum.textContent = item.summary;
++
++      top.append(kicker, title, latin, sum);
++
++      const footer = document.createElement("div");
++      footer.className = "card-footer";
++      const bloom = document.createElement("span");
++      bloom.className = "bloom-tag";
++      bloom.textContent = `Bloom season: ${item.bloomSeason}`;
++
++      const actions = document.createElement("div");
++      actions.className = "card-actions";
++
++      const btn = document.createElement("button");
++      btn.type = "button";
++      btn.className = "inspect-btn";
++      btn.textContent = "Inspect dossier";
++      btn.setAttribute("aria-label", `Inspect ${item.commonName} (${item.latinName})`);
++      btn.addEventListener("click", () => openSpecimenDialog(item, btn));
++
++      const isCompared = state.compareIds.includes(item.id);
++      const cmpBtn = document.createElement("button");
++      cmpBtn.type = "button";
++      cmpBtn.className = "compare-btn";
++      cmpBtn.setAttribute("data-compare-toggle", item.id);
++      cmpBtn.setAttribute("aria-pressed", isCompared ? "true" : "false");
++      cmpBtn.setAttribute("aria-label", `${isCompared ? "Remove" : "Add"} ${item.commonName} comparison`);
++      cmpBtn.textContent = isCompared ? "Pinned to guide" : "Add to field guide";
++      cmpBtn.addEventListener("click", () => toggleCompare(item.id));
++
++      actions.append(btn, cmpBtn);
++      footer.append(bloom, actions);
++      card.append(top, footer);
++      frag.appendChild(card);
++    }
++    gridEl.appendChild(frag);
++  }
++
++  function populateTiers() {
++    if (!state.data) return;
++    tierSelectEl.textContent = "";
++    for (const tier of state.data.visitPasses) {
++      const opt = document.createElement("option");
++      opt.value = tier.id;
++      opt.textContent = `${tier.name} ($${tier.priceUsd})`;
++      tierSelectEl.appendChild(opt);
++    }
++  }
++
++  function wireEvents() {
++    for (const btn of document.querySelectorAll(".filter-btn")) {
++      btn.addEventListener("click", () => {
++        state.biome = btn.dataset.biome || "All";
++        for (const other of document.querySelectorAll(".filter-btn")) {
++          const active = other === btn;
++          other.classList.toggle("active", active);
++          other.setAttribute("aria-pressed", active ? "true" : "false");
++        }
++        updateTelemetry();
++        renderSpecimens();
++      });
++    }
++
++    searchEl.addEventListener("input", () => {
++      state.query = searchEl.value;
++      renderSpecimens();
++    });
++
++    bloomEl.addEventListener("change", () => {
++      state.bloom = bloomEl.value;
++      renderSpecimens();
++    });
++
++    resetBtn.addEventListener("click", () => {
++      state.biome = "All";
++      state.query = "";
++      state.bloom = "All";
++      searchEl.value = "";
++      bloomEl.value = "All";
++      for (const btn of document.querySelectorAll(".filter-btn")) {
++        const active = btn.dataset.biome === "All";
++        btn.classList.toggle("active", active);
++        btn.setAttribute("aria-pressed", active ? "true" : "false");
++      }
++      updateTelemetry();
++      renderSpecimens();
++    });
++
++    compareClearBtn.addEventListener("click", () => {
++      state.compareIds = [];
++      renderCompareDrawer();
++      renderSpecimens();
++    });
++
++    closeBtn.addEventListener("click", closeDialog);
++    dialogEl.addEventListener("cancel", (ev) => {
++      ev.preventDefault();
++      closeDialog();
++    });
++
++    formEl.addEventListener("submit", (ev) => {
++      ev.preventDefault();
++      errorEl.hidden = true;
++      summaryEl.hidden = true;
++
++      const dateVal = document.getElementById("visit-date").value.trim();
++      const countVal = Number(document.getElementById("visitor-count").value);
++      const tier = state.data.visitPasses.find((t) => t.id === tierSelectEl.value);
++
++      if (!dateVal) {
++        errorEl.textContent = "Choose a preferred visit date to calculate pass pricing.";
++        errorEl.hidden = false;
++        return;
++      }
++      if (!Number.isInteger(countVal) || countVal < 1 || countVal > 8) {
++        errorEl.textContent = "Enter a whole visitor count between 1 and 8.";
++        errorEl.hidden = false;
++        return;
++      }
++      if (!tier) {
++        errorEl.textContent = "Choose a conservatory pass tier before calculating.";
++        errorEl.hidden = false;
++        return;
++      }
++
++      const total = countVal * tier.priceUsd;
++      summaryEl.textContent = `${tier.name} reserved for ${countVal} visitor(s) on ${dateVal}. Estimated total: $${total}.`;
++      summaryEl.hidden = false;
++    });
++  }
++
++  async function init() {
++    const res = await fetch("./data/specimens.json");
++    state.data = await res.json();
++    populateTiers();
++    wireEvents();
++    updateTelemetry();
++    renderCompareDrawer();
++    renderSpecimens();
++  }
++
++  document.addEventListener("DOMContentLoaded", init);
++})();

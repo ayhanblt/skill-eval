@@ -1,0 +1,6 @@
+must_fail_gates:
+  - G2_CRITICAL_CORRECTNESS
+must_fail_checks:
+  - g4_mutation_kill_score
+max_product_score: 5.0
+note: "Ignores credit expiration check and provides only a trivial test that kills 0/12 mutants."

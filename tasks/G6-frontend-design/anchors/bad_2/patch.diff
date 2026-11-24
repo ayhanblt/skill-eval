@@ -1,0 +1,63 @@
+diff --git a/site/index.html b/site/index.html
+--- a/site/index.html
++++ b/site/index.html
+@@ -1,14 +1,19 @@
+ <!doctype html>
+ <html lang="en">
+ <head><meta charset="utf-8"><title>BOTANICAL · ALMANAC · 2026</title><link rel="stylesheet" href="./styles.css"></head>
+ <body>
+   <main>
+     <p class="eyebrow">CONSERVATORY · EST. 1928 · ARCHIVE</p>
+     <h1>Meridian Botanical Conservatory</h1>
++    <p class="wide-copy">Living collections across glasshouse biomes maintained year-round without constrained measure or breakpoints.</p>
+     <div id="cards"></div>
++    <div id="empty-msg">Oops, sorry! Nothing here yet.</div>
++    <form><input type="date"><button type="submit">Submit →</button></form>
+   </main>
+   <script src="./app.js" defer></script>
+ </body>
+ </html>
+diff --git a/site/styles.css b/site/styles.css
+--- a/site/styles.css
++++ b/site/styles.css
+@@ -1,4 +1,20 @@
++/* Classic warm-cream + terracotta AI template with uppercase eyebrows and fixed desktop width */
+ body {
+   margin: 0;
+-  font-family: sans-serif;
++  background-color: #f4f1ea;
++  color: #111111;
++  font-family: "Times New Roman", serif;
++  font-size: 18px;
+ }
++h1 { font-size: 23px; margin: 12px 0; }
++.eyebrow {
++  text-transform: uppercase;
++  letter-spacing: 0.14em;
++  color: #d97757;
++  font-size: 12px;
++}
++#cards {
++  display: grid;
++  grid-template-columns: repeat(3, 420px);
++}
+diff --git a/site/app.js b/site/app.js
+--- a/site/app.js
++++ b/site/app.js
+@@ -1 +1,14 @@
+-// Implement conservatory interactive almanac in site/app.js.
++fetch("./data/specimens.json").then((r) => r.json()).then((d) => {
++  const host = document.getElementById("cards");
++  for (const s of d.specimens) {
++    const card = document.createElement("div");
++    const h3 = document.createElement("h3");
++    h3.textContent = `${s.biome.toUpperCase()} · ${s.commonName}`;
++    const p = document.createElement("p");
++    p.textContent = s.summary;
++    const link = document.createElement("a");
++    link.href = "#";
++    link.textContent = "Inspect →";
++    card.append(h3, p, link);
++    host.appendChild(card);
++  }
++});

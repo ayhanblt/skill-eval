@@ -9,7 +9,7 @@ probes:
     description: "Recalculates and validates formulas via LibreOffice / soffice headless"
     kind: regex
     target: transcript
-    pattern: "\\b(soffice|libreoffice)\\b.*--convert-to"
+    pattern: "(recalc\\.py|\\b(soffice|libreoffice)\\b.*--convert-to)"
   - id: xlsx_visual_inspection
     description: "Converts workbook to PDF/PNG to inspect layout and column truncation visually"
     kind: regex

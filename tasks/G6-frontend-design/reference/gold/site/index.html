@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Meridian Botanical Conservatory: Seasonal Almanac</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <div class="brand-mark">Meridian Glasshouses, founded 1928</div>
+      <nav aria-label="Primary sections" class="header-nav">
+        <a href="#almanac">Specimen index</a>
+        <a href="#compare-drawer">Field guide comparison</a>
+        <a href="#visit-pass">Timed entry</a>
+      </nav>
+    </div>
+    <div class="hero-band">
+      <h1>Meridian Botanical Conservatory</h1>
+      <p class="hero-lead">Living alpine, arid, and montane cloud-forest collections calibrated across three architectural glasshouses.</p>
+    </div>
+  </header>
+
+  <main id="almanac" class="almanac-shell">
+    <aside class="telemetry-rail" aria-label="Glasshouse climate telemetry">
+      <section class="panel telemetry-panel" aria-live="polite">
+        <h2>Glasshouse Telemetry</h2>
+        <p id="telemetry-biome" class="telemetry-biome">All Biomes</p>
+        <dl class="telemetry-metrics">
+          <div>
+            <dt>Ambient temp</dt>
+            <dd id="telemetry-temp">7.5°C – 29.0°C</dd>
+          </div>
+          <div>
+            <dt>Humidity</dt>
+            <dd id="telemetry-humidity">24% – 88% RH</dd>
+          </div>
+          <div>
+            <dt>Irrigation cycle</dt>
+            <dd id="telemetry-misting">Microclimate scheduled</dd>
+          </div>
+        </dl>
+        <p id="telemetry-note" class="telemetry-note">Select a pavilion to inspect real-time misting, thermal mass, and geothermal cooling conditions.</p>
+      </section>
+
+      <section id="visit-pass" class="panel pass-panel">
+        <h2>Timed-Entry Visit Pass</h2>
+        <form id="pass-form" novalidate>
+          <div class="field">
+            <label for="visit-date">Preferred visit date</label>
+            <input id="visit-date" name="visitDate" type="date" required>
+          </div>
+          <div class="field">
+            <label for="pass-tier">Conservatory pass tier</label>
+            <select id="pass-tier" name="tier"></select>
+          </div>
+          <div class="field">
+            <label for="visitor-count">Visitors (1–8)</label>
+            <input id="visitor-count" name="visitors" type="number" min="1" max="8" value="2" required>
+          </div>
+          <div id="pass-error" class="form-error" role="alert" hidden></div>
+          <button type="submit" class="btn-primary">Calculate visit pass</button>
+        </form>
+        <div id="pass-summary" class="pass-summary" data-pass-summary hidden aria-live="polite"></div>
+      </section>
+    </aside>
+
+    <section class="catalog-column" aria-label="Botanical specimen catalog">
+      <div class="controls-bar">
+        <div class="biome-filters" role="group" aria-label="Filter specimens by biome">
+          <button type="button" class="filter-btn active" data-biome="All" aria-pressed="true">All</button>
+          <button type="button" class="filter-btn" data-biome="Cloud Forest" aria-pressed="false">Cloud Forest</button>
+          <button type="button" class="filter-btn" data-biome="Arid Pavilion" aria-pressed="false">Arid Pavilion</button>
+          <button type="button" class="filter-btn" data-biome="Alpine House" aria-pressed="false">Alpine House</button>
+        </div>
+        <div class="search-controls">
+          <div class="field inline-field">
+            <label for="specimen-search">Search species</label>
+            <input id="specimen-search" type="search" placeholder="Name, Latin binomial, or note">
+          </div>
+          <div class="field inline-field">
+            <label for="bloom-filter">Bloom season</label>
+            <select id="bloom-filter">
+              <option value="All">All seasons</option>
+              <option value="Spring">Spring</option>
+              <option value="Summer">Summer</option>
+              <option value="Autumn">Autumn</option>
+              <option value="Winter">Winter</option>
+              <option value="Year-round">Year-round</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <section id="compare-drawer" class="compare-drawer" data-compare-drawer aria-label="Field guide comparison" aria-live="polite" hidden>
+        <div class="compare-header">
+          <div>
+            <h2>Field Guide Comparison</h2>
+            <p id="compare-status" class="compare-status">0 of 3 specimens pinned for side-by-side review.</p>
+          </div>
+          <button type="button" id="compare-clear-btn" class="btn-secondary" data-compare-clear>Clear comparison</button>
+        </div>
+        <div id="compare-slots" class="compare-slots"></div>
+      </section>
+
+      <div id="specimen-grid" class="specimen-grid"></div>
+
+      <div id="empty-state" class="empty-state" data-empty-state hidden>
+        <h3>No matching specimens in this filter</h3>
+        <p>Clear the species query or switch back to all glasshouse biomes.</p>
+        <button type="button" id="reset-filters-btn" class="btn-secondary">Reset filters</button>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="specimen-dialog" class="specimen-dialog" aria-labelledby="dialog-title">
+    <div class="dialog-header">
+      <div>
+        <p id="dialog-biome" class="dialog-kicker"></p>
+        <h2 id="dialog-title"></h2>
+        <p id="dialog-latin" class="latin-sub"></p>
+      </div>
+      <button type="button" id="dialog-close" class="btn-close" aria-label="Close specimen details">Close dossier</button>
+    </div>
+    <dl class="dialog-specs">
+      <div><dt>Elevation</dt><dd id="dialog-elevation"></dd></div>
+      <div><dt>Bloom season</dt><dd id="dialog-bloom"></dd></div>
+      <div><dt>Conservation</dt><dd id="dialog-conservation"></dd></div>
+    </dl>
+    <p id="dialog-summary"></p>
+    <p id="dialog-care" class="care-note"></p>
+  </dialog>
+
+  <script src="./app.js" defer></script>
+</body>
+</html>

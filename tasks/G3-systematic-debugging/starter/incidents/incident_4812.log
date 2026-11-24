@@ -1,0 +1,13 @@
+2026-06-14T08:12:01Z INFO  batch_worker[w-02] starting batch=B-9041 items=9
+2026-06-14T08:12:01Z INFO  batch_worker[w-02] invoice=inv-9001 tenant=t-acme-01 seats=2 promo=ANNUAL20 grant_credit=1500 total=20196
+2026-06-14T08:12:01Z WARN  reconciler[w-02] invoice=inv-9002 tenant=t-globex-02 expected_payment=21600 actual_invoice_total=15700 promo_tags=('ANNUAL20',) applied_credit=1500
+2026-06-14T08:12:01Z ERROR batch_worker[w-02] invoice=inv-9002 status=failed reason="Payment 21600 != invoice total 15700"
+2026-06-14T08:12:02Z INFO  tax_worker[w-02] invoice=inv-9003 tenant=t-ngo-01 country=US quarter=2026Q1 tax_exempt=true tax_cents=0
+2026-06-14T08:12:02Z WARN  tax_worker[w-02] invoice=inv-9004 tenant=t-retail-04 country=US quarter=2026Q1 tax_exempt=false tax_cents=0 (expected=800)
+2026-06-14T08:12:02Z WARN  tax_worker[w-02] invoice=inv-9005 tenant=t-retail-05 country=US quarter=2026Q2 tax_exempt=false applied_tax_bps=0 (schedule_expected=825)
+2026-06-14T08:12:03Z INFO  ledger_audit[w-02] tenant=t-delta-09 before_balance=5000 requested_credit=5000 item=inv-9006
+2026-06-14T08:12:03Z ERROR batch_worker[w-02] invoice=inv-9006 tenant=t-delta-09 status=failed error="seats must be positive"
+2026-06-14T08:12:03Z ALERT ledger_audit[w-02] tenant=t-delta-09 after_failed_item_balance=0 (missing=5000)
+2026-06-14T08:12:04Z ALERT ledger_audit[w-02] tenant=t-kappa-11 seats=1 promo=ANNUAL20 grant_credit=6000 requested_ledger=5000 invoice_credit=8000 after_balance=0 (expected_remaining=3000)
+2026-06-14T08:12:05Z ALERT webhook_ingest[w-02] duplicate_delivery invoice=inv-9007 tenant=t-omega-03 retried in same worker -> debited_twice balance_dropped_by=10000 instead_of=5000
+2026-06-14T08:12:06Z WARN  webhook_ingest[w-02] accepted blank tenant_id="   " on invoice=inv-9008 and unnormalized country=" us " quarter="2026q2" -> polluted default bucket / raised 500 KeyError

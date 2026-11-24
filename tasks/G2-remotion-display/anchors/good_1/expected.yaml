@@ -1,0 +1,6 @@
+expected:
+  g2_frame_driven_motion: pass
+  g2_scene_sequencing: pass
+  g2_zod_parameterized_props: pass
+  g2_audio_and_captions_sync: pass
+  g2_modular_video_architecture: pass

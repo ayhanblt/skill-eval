@@ -1,0 +1,77 @@
+{
+  "bundle_format": "acme-rel-1",
+  "version": "1.4.0",
+  "git_commit": "e2652a46af7ac4b8ab2db82f223026dbf525ffe8",
+  "built_at_utc": "2026-11-23T09:43:25Z",
+  "migrations": [
+    {
+      "name": "001_create_ledger",
+      "up": "migrations/001_create_ledger.up.sql",
+      "down": "migrations/001_create_ledger.down.sql",
+      "up_sha256": "2f4580cfa536eb7868cf9162e7974c17f87eb80f9461d1adcce6df707e5e7684",
+      "down_sha256": "ba9c8741965e29f1455e9d36cdd94e2d183efe3b1268f3e513a15a640b652487"
+    },
+    {
+      "name": "002_add_settlement_index",
+      "up": "migrations/002_add_settlement_index.up.sql",
+      "down": "migrations/002_add_settlement_index.down.sql",
+      "up_sha256": "5508ed17ab7506fa411ec1d1d3080cb04aa308b7c9c12fb67b6e6ecd1810690e",
+      "down_sha256": "464217d63bdee316757ee93a57f5ed41b455ee848b2cf67bcc6d7f6da1383024"
+    },
+    {
+      "name": "003_add_settlement_batches",
+      "up": "migrations/003_add_settlement_batches.up.sql",
+      "down": "migrations/003_add_settlement_batches.down.sql",
+      "up_sha256": "30b85153e9cdb29489c08c4bf4395db83b4bc13ffcfd7e814d9383d64bd11bac",
+      "down_sha256": "9b8cf0564b7ab804c66a45b7c6b99d89ed7d675b6e9c99cddc59e234d93ae03d"
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "artifacts/VERSION",
+      "sha256": "78b591400c56b7b67b8cb3b2b8a8e65e9093897f02ce0878e6b5405c68620fa7",
+      "bytes": 6
+    },
+    {
+      "path": "artifacts/migrations/001_create_ledger.down.sql",
+      "sha256": "ba9c8741965e29f1455e9d36cdd94e2d183efe3b1268f3e513a15a640b652487",
+      "bytes": 37
+    },
+    {
+      "path": "artifacts/migrations/001_create_ledger.up.sql",
+      "sha256": "2f4580cfa536eb7868cf9162e7974c17f87eb80f9461d1adcce6df707e5e7684",
+      "bytes": 193
+    },
+    {
+      "path": "artifacts/migrations/002_add_settlement_index.down.sql",
+      "sha256": "464217d63bdee316757ee93a57f5ed41b455ee848b2cf67bcc6d7f6da1383024",
+      "bytes": 48
+    },
+    {
+      "path": "artifacts/migrations/002_add_settlement_index.up.sql",
+      "sha256": "5508ed17ab7506fa411ec1d1d3080cb04aa308b7c9c12fb67b6e6ecd1810690e",
+      "bytes": 74
+    },
+    {
+      "path": "artifacts/migrations/003_add_settlement_batches.down.sql",
+      "sha256": "9b8cf0564b7ab804c66a45b7c6b99d89ed7d675b6e9c99cddc59e234d93ae03d",
+      "bytes": 31
+    },
+    {
+      "path": "artifacts/migrations/003_add_settlement_batches.up.sql",
+      "sha256": "30b85153e9cdb29489c08c4bf4395db83b4bc13ffcfd7e814d9383d64bd11bac",
+      "bytes": 117
+    },
+    {
+      "path": "artifacts/service/__init__.py",
+      "sha256": "6778039c6a1fdc367c2bd8c5164bed3b19db94534c0a2ecf0667c2a105c50fb6",
+      "bytes": 78
+    },
+    {
+      "path": "artifacts/service/ledger.py",
+      "sha256": "7041e775154369c9aa77472e792b806f0712532ea596d3b2f2981f6297d701f2",
+      "bytes": 567
+    }
+  ],
+  "rollback_verified": true
+}

@@ -148,6 +148,14 @@ def build_matrix(root: Path, study_id: str) -> list[MatrixRow]:
     runtime = spec["runtime"]
     registry = load_skill_registry(root)
     tasks_list = spec["tasks"]
+    study_tasks = study.get("tasks")
+    if study_tasks:
+        known_ids = {t["id"] for t in tasks_list}
+        unknown = [tid for tid in study_tasks if tid not in known_ids]
+        if unknown:
+            raise ValueError(f"Study '{study_id}' references unknown task(s): {unknown}")
+        allowed = set(study_tasks)
+        tasks_list = [t for t in tasks_list if t["id"] in allowed]
     distractor_count = int(runtime.get("distractor_count_per_task", 5))
 
     rows: list[MatrixRow] = []

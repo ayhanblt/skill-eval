@@ -1,0 +1,217 @@
+diff --git a/billing_svc/cache.py b/billing_svc/cache.py
+--- a/billing_svc/cache.py
++++ b/billing_svc/cache.py
+@@ -1,10 +1,16 @@
+ from __future__ import annotations
++import copy
+ from typing import Any
++from billing_svc.models import PricingError
+ 
+ DEFAULT_POLICY: dict[str, Any] = {"base_rate_cents": 10_000, "discounts": {}, "feature_credits": [], "tax_bps": 800}
+ 
++def _norm_tenant(tenant_id: str) -> str:
++    if not isinstance(tenant_id, str) or not tenant_id.strip():
++        raise PricingError("tenant_id cannot be blank")
++    return tenant_id.strip()
++
+ class TenantPolicyStore:
+     def fetch(self, tenant_id: str) -> dict[str, Any]:
++        tid = _norm_tenant(tenant_id)
+         self.load_calls += 1
+         self.load_calls_by_tenant[tid] = self.load_calls_by_tenant.get(tid, 0) + 1
+         base = copy.deepcopy(DEFAULT_POLICY)
+         if tid in self._overrides:
+             base.update(copy.deepcopy(self._overrides[tid]))
+         return base
+ 
+ class TenantPolicyCache:
+     def get_policy(self, tenant_id: str) -> dict[str, Any]:
++        tid = _norm_tenant(tenant_id)
+         if tid in self._entries:
+             self.hits += 1
+             return copy.deepcopy(self._entries[tid])
+         self.misses += 1
+         policy = self._store.fetch(tid)
+         self._entries[tid] = copy.deepcopy(policy)
+         return policy
+diff --git a/billing_svc/tax_engine.py b/billing_svc/tax_engine.py
+--- a/billing_svc/tax_engine.py
++++ b/billing_svc/tax_engine.py
+@@ -20,12 +20,15 @@ class TaxEngine:
+     def resolve_rate(self, country: str, quarter: str, *, tax_exempt: bool = False) -> dict[str, Any]:
++        norm_country = country.strip().upper() if isinstance(country, str) else ""
++        norm_quarter = quarter.strip().upper() if isinstance(quarter, str) else ""
++        if not norm_country or not norm_quarter: raise PricingError("country and quarter required")
++        if tax_exempt:
++            return {"tax_bps": 0, "region": norm_country, "quarter": norm_quarter, "tax_exempt": True}
+-        key = country
++        key = (norm_country, norm_quarter)
+         if key not in self._schedule_cache:
+             self.lookups += 1
+-            entry = TAX_SCHEDULES.get((country, quarter))
++            entry = TAX_SCHEDULES.get(key)
+             if entry is None: raise ValueError(f"Unknown tax schedule: {norm_country}/{norm_quarter}")
+             self._schedule_cache[key] = entry.copy()
+-        return self._schedule_cache[key]
++        return self._schedule_cache[key].copy()
+diff --git a/billing_svc/ledger.py b/billing_svc/ledger.py
+--- a/billing_svc/ledger.py
++++ b/billing_svc/ledger.py
+@@ -14,18 +14,22 @@ class CreditLedger:
+     def deposit(self, tenant_id: str, cents: int) -> None:
++        if not isinstance(tenant_id, str) or not tenant_id.strip(): raise PricingError("blank tenant")
++        self._balances[tenant_id.strip()] = self._balances.get(tenant_id.strip(), 0) + cents
+     def balance(self, tenant_id: str) -> int:
++        if not isinstance(tenant_id, str) or not tenant_id.strip(): raise PricingError("blank tenant")
++        return self._balances.get(tenant_id.strip(), 0)
+     def apply_credit(self, tenant_id: str, requested_cents: int) -> int:
++        if not isinstance(tenant_id, str) or not tenant_id.strip(): raise PricingError("blank tenant")
++        tid = tenant_id.strip()
+         avail = self._balances.get(tid, 0)
+         used = min(avail, requested_cents)
+         self._balances[tid] = avail - used
+         return used
+     def refund(self, tenant_id: str, cents: int) -> None:
++        if not isinstance(tenant_id, str) or not tenant_id.strip(): raise PricingError("blank tenant")
++        if cents > 0: self._balances[tenant_id.strip()] = self._balances.get(tenant_id.strip(), 0) + cents
+diff --git a/billing_svc/webhook.py b/billing_svc/webhook.py
+--- a/billing_svc/webhook.py
++++ b/billing_svc/webhook.py
+@@ -8,18 +8,28 @@ def parse_batch_payload(records: list[dict[str, Any]]) -> list[BatchItem]:
+     items: list[BatchItem] = []
+     for rec in records:
++        raw_inv, raw_tid = rec.get("invoice_id"), rec.get("tenant_id")
++        if not isinstance(raw_inv, str) or not raw_inv.strip(): raise PricingError("blank invoice_id")
++        if not isinstance(raw_tid, str) or not raw_tid.strip(): raise PricingError("blank tenant_id")
++        raw_c = rec.get("country")
++        if raw_c is not None and (not isinstance(raw_c, str) or not raw_c.strip()): raise PricingError("blank country")
++        country = raw_c.strip().upper() if raw_c is not None else None
++        raw_q = rec.get("quarter", "2026Q1")
++        if not isinstance(raw_q, str) or not raw_q.strip(): raise PricingError("blank quarter")
++        quarter = raw_q.strip().upper()
+         items.append(
+             BatchItem(
+-                invoice_id=str(rec["invoice_id"]),
+-                tenant_id=str(rec["tenant_id"]),
++                invoice_id=raw_inv.strip(),
++                tenant_id=raw_tid.strip(),
+                 seats=int(rec["seats"]),
+-                country=rec.get("country"),
+-                quarter=str(rec.get("quarter", "2026Q1")),
++                country=country,
++                quarter=quarter,
+                 tax_exempt=bool(rec.get("tax_exempt", False)),
+                 promo_code=rec.get("promo_code"),
+                 grant_credit_cents=int(rec.get("grant_credit_cents", 0)),
+                 ledger_credit_cents=int(rec.get("ledger_credit_cents", 0)),
+                 payment_cents=int(rec["payment_cents"]) if rec.get("payment_cents") is not None else None,
+             )
+         )
+     return items
+diff --git a/billing_svc/pricing.py b/billing_svc/pricing.py
+--- a/billing_svc/pricing.py
++++ b/billing_svc/pricing.py
+@@ -34,15 +34,18 @@ def generate_invoice(invoice_id: str, tenant_id: str, seats: int, *, promo_code:
++    if not isinstance(invoice_id, str) or not invoice_id.strip(): raise PricingError("blank invoice_id")
++    if not isinstance(tenant_id, str) or not tenant_id.strip(): raise PricingError("blank tenant_id")
++    tid = tenant_id.strip()
+     policy = policy_cache.get_policy(tid)
+-    if promo_code: policy["discounts"][promo_code] = PROMO_CATALOG_BPS[promo_code]
+-    if grant_credit_cents > 0: policy["feature_credits"].append(grant_credit_cents)
++    discounts = dict(policy["discounts"])
++    if promo_code: discounts[promo_code] = PROMO_CATALOG_BPS[promo_code]
++    credits = list(policy["feature_credits"])
++    if grant_credit_cents > 0: credits.append(grant_credit_cents)
+     if tax_exempt:
+         effective_tax_bps = 0
+     elif country is not None:
++        if not isinstance(country, str) or not country.strip(): raise PricingError("blank country")
++        if not isinstance(quarter, str) or not quarter.strip(): raise PricingError("blank quarter")
+         sched = engine.resolve_rate(country.strip().upper(), quarter.strip().upper(), tax_exempt=False)
+         effective_tax_bps = int(sched["tax_bps"])
+diff --git a/billing_svc/batch_runner.py b/billing_svc/batch_runner.py
+--- a/billing_svc/batch_runner.py
++++ b/billing_svc/batch_runner.py
+@@ -28,6 +28,7 @@ class BatchRunner:
+         self.ledger = ledger or CreditLedger()
++        self._reconciled_by_invoice: dict[str, BatchItemResult] = {}
+ 
+     def process_batch(self, items: list[BatchItem]) -> list[BatchItemResult]:
+         results = []
+         for idx, item in enumerate(items, start=1):
++            if item.invoice_id.strip() in self._reconciled_by_invoice:
++                results.append(self._reconciled_by_invoice[item.invoice_id.strip()])
++                continue
+             debited = 0
+             try:
++                tid = item.tenant_id.strip()
++                if not tid: raise PricingError("blank tenant_id")
++                non_ledger = sum(self.cache.get_policy(tid)["feature_credits"]) + item.grant_credit_cents
+                 if item.ledger_credit_cents > 0:
+                     debited = self.ledger.apply_credit(tid, item.ledger_credit_cents)
+                 inv = generate_invoice(item.invoice_id, tid, item.seats, promo_code=item.promo_code, grant_credit_cents=item.grant_credit_cents, ledger_credit_cents=debited, country=item.country, quarter=item.quarter, tax_exempt=item.tax_exempt, cache=self.cache, tax_engine=self.tax_engine)
+                 if item.payment_cents is not None:
+                     reconcile_payment(inv, WebhookPayment(f"batch-pay-{idx}", item.invoice_id, tid, item.payment_cents))
++                used_ledger = max(0, min(debited, inv.credit_cents - non_ledger))
++                if debited > used_ledger:
++                    self.ledger.refund(tid, debited - used_ledger)
++                res = BatchItemResult(item.invoice_id, tid, "reconciled" if item.payment_cents is not None else "invoiced", inv)
++                if res.status == "reconciled":
++                    self._reconciled_by_invoice[item.invoice_id.strip()] = res
++                results.append(res)
+             except (PricingError, ValueError, InvoiceTotalMismatchError) as exc:
++                if debited > 0:
++                    self.ledger.refund(tid, debited)
+                 results.append(BatchItemResult(item.invoice_id, item.tenant_id, "failed", error=str(exc)))
+diff --git a/DIAGNOSIS.md b/DIAGNOSIS.md
+new file mode 100644
+--- /dev/null
++++ b/DIAGNOSIS.md
+@@ -0,0 +1,6 @@
++# Incident #4812 Root Cause Analysis
++1. Shallow policy copies in cache.py & in-place discounts/feature_credits mutation in pricing.py leaked tenant promos/credits.
++2. tax_engine.py keyed cache by country only and returned mutable dicts corrupted by tax_exempt=True in pricing.py.
++3. batch_runner.py lacked error rollback and excess ledger refund, and lacked duplicate reconciled invoice_id idempotency.
++4. webhook.py, cache.py, ledger.py, and pricing.py lacked defense-in-depth validation/normalization for blank tenant_id and case/whitespace.
++5. currency.py half-up rounding and reconciler.py exact cent equality are intentional invariants, NOT bugs (reconciler.py left unmodified).
+diff --git a/tests/test_regressions.py b/tests/test_regressions.py
+new file mode 100644
+--- /dev/null
++++ b/tests/test_regressions.py
+@@ -0,0 +1,33 @@
++import pytest
++from billing_svc.batch_runner import BatchRunner
++from billing_svc.cache import TenantPolicyCache
++from billing_svc.ledger import CreditLedger
++from billing_svc.models import BatchItem, PricingError
++from billing_svc.pricing import generate_invoice
++from billing_svc.tax_engine import TaxEngine
++from billing_svc.webhook import parse_batch_payload
++
++def test_policy_and_credit_isolation():
++    c = TenantPolicyCache()
++    assert generate_invoice("i1", "t1", 2, promo_code="ANNUAL20", grant_credit_cents=500, cache=c).credit_cents == 500
++    inv2 = generate_invoice("i2", "t2", 2, cache=c)
++    assert inv2.discount_cents == 0 and inv2.credit_cents == 0
++
++def test_tax_quarter_and_exempt_isolation():
++    eng = TaxEngine()
++    assert generate_invoice("e1", "te", 1, country="US", quarter="2026Q1", tax_exempt=True, tax_engine=eng).tax_cents == 0
++    assert generate_invoice("q1", "t1", 1, country="US", quarter="2026Q1", tax_engine=eng).tax_cents == 800
++    assert generate_invoice("q2", "t2", 1, country="US", quarter="2026Q2", tax_engine=eng).tax_cents == 825
++
++def test_ledger_rollback_excess_refund_and_idempotency():
++    ledger = CreditLedger({"t": 10_000})
++    r = BatchRunner(ledger=ledger)
++    r.process_batch([BatchItem("bad", "t", seats=0, ledger_credit_cents=5_000)])
++    assert ledger.balance("t") == 10_000
++    item = BatchItem("ok1", "t", seats=1, promo_code="ANNUAL20", grant_credit_cents=6_000, ledger_credit_cents=5_000, payment_cents=0)
++    r.process_batch([item, item])
++    assert ledger.balance("t") == 8_000
++
++def test_defense_in_depth_empty_tenant_rejected():
++    with pytest.raises(PricingError): parse_batch_payload([{"invoice_id": "x", "tenant_id": " ", "seats": 1}])
++    with pytest.raises(PricingError): TenantPolicyCache().get_policy(" ")
++    with pytest.raises(PricingError): CreditLedger().apply_credit("", 10)
++    with pytest.raises(PricingError): generate_invoice("i", "  ", 1)
++    assert parse_batch_payload([{"invoice_id": " w ", "tenant_id": " t ", "seats": 1, "country": " us ", "quarter": "2026q2"}])[0].country == "US"

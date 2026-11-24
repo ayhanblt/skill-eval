@@ -1,0 +1,6 @@
+expected:
+  g3_root_cause_fixed_in_cache: fail
+  g3_ledger_atomicity_and_idempotency: fail
+  g3_defense_in_depth_and_reconciler: fail
+  g3_diagnosis_documents_chain: fail
+  g3_regression_tests_isolation: fail

@@ -1,0 +1,16 @@
+{
+  "sheetnames": ["Inputs", "Assumptions", "Cash Flow 12M", "Summary"],
+  "formula_count": 0,
+  "formula_errors": [],
+  "unsupported_functions": [],
+  "sample_summary_formulas": {},
+  "inputs_font_colors": ["00000000"],
+  "inputs_number_formats": ["General"],
+  "summary_font_colors": ["00000000"],
+  "summary_number_formats": ["General"],
+  "cashflow_font_colors": ["00000000"],
+  "cashflow_number_formats": ["General"],
+  "chart_count": 0,
+  "charts": [],
+  "pdf_hash_truncation_count": 0
+}

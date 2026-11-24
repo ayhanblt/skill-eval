@@ -1,0 +1,6 @@
+expected:
+  g1_live_formulas: pass
+  g1_compatible_functions: fail
+  g1_number_formatting: pass
+  g1_financial_color_coding: pass
+  g1_native_chart_and_assumptions: fail

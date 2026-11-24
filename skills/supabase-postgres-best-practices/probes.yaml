@@ -14,7 +14,7 @@ probes:
     description: "Avoids deep OFFSET pagination in favor of keyset/cursor filtering where applicable"
     kind: regex
     target: patch
-    pattern: "(WHERE.*>\\s*\\$|tuple|<\\s*\\$|keyset|cursor)"
+    pattern: "((WHERE|AND)[^;]*[<>]\\s*(\\$|%s)|tuple|keyset|cursor)"
   - id: pg_self_verified
     description: "Verifies query plan and outputs after last edit"
     kind: trace_flag

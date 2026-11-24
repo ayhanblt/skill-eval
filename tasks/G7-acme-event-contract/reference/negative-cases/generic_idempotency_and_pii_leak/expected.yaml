@@ -1,0 +1,5 @@
+must_fail_gates:
+  - G2_CRITICAL_CORRECTNESS
+  - G3_CRITICAL_SAFETY_RULES
+max_product_score: 5.0
+note: "Accepts generic Idempotency-Key, uses +00:00 UTC instead of Z, returns flat error dict, and leaks PII into audit.jsonl."

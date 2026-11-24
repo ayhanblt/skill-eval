@@ -1,0 +1,46 @@
+task_id: G6-frontend-design
+archetype: production_engineering
+target_skill: frontend-design
+visual_review: true
+
+jev_items:
+  - id: g6_anti_cliche_palette_and_chrome
+    dimension: code_output_maintainability
+    binary: true
+    question: "Does the conservatory almanac establish a distinctive palette and chrome tailored to the botanical brief rather than generic AI-generated template traits (#F4F1EA warm cream + terracotta accents, ALL-CAPS eyebrows, '·' middle dots, '→' button chrome, or cookie-cutter SaaS card wash)?"
+    pass_criteria: "Avoids warm-cream (#F4F1EA/#F6F4EC) default with terracotta accents, has minimal/zero ALL-CAPS eyebrows or '·'/'→' template chrome, and avoids bland #eee/#bbb defaults."
+    fail_criteria: "Exhibits warm cream (#F4F1EA/#F6F4EC) AI-default styling with terracotta accents, tracked ALL-CAPS eyebrow clutter, '·' middle-dot strings, or raw bland #eee/#bbb unstyled defaults."
+
+  - id: g6_typography_scale_and_measure
+    dimension: code_output_maintainability
+    binary: true
+    question: "Does site/styles.css define coherent :root design tokens (--* variables), intentional typography hierarchy (h1_to_body_ratio >= 1.8), and comfortable paragraph line-lengths (< 80ch / <= 720px)?"
+    pass_criteria: "Defines multiple semantic CSS custom properties under :root { ... }, distinct deliberate typography with H1/body size ratio >= 1.8x, and readable line lengths (< 80ch / max_paragraph_width_px <= 720)."
+    fail_criteria: "Lacks :root --* design tokens, has flat H1/body hierarchy (ratio < 1.8x), defaults only to unstyled Arial/sans-serif, or allows overwide paragraphs (> 720px)."
+
+  - id: g6_active_voice_and_clear_microcopy
+    dimension: code_output_maintainability
+    binary: true
+    question: "Does the interface copy use specific, active-voice CTAs and direct, helpful error/empty-state guidance rather than vague labels ('Submit') or apologetic filler?"
+    pass_criteria: "Form submit CTA, inspect triggers, comparison controls, validation alerts, and empty-state guidance use specific active verbs and direct sentence-case copy (not generic 'Submit')."
+    fail_criteria: "Uses generic button text such as 'Submit', apologetic/vague error messages, or missing empty-state guidance."
+
+  - id: g6_responsive_focus_and_reduced_motion
+    dimension: code_output_maintainability
+    binary: true
+    question: "Does the implementation support responsive 1440/768/375 layouts with zero overflow, :focus-visible, prefers-reduced-motion, semantic landmarks, dialog Escape focus-return, and interactive comparison drawer?"
+    pass_criteria: "Zero overflow across 1440/768/375 viewports, includes :focus-visible and prefers-reduced-motion rules, uses <header>/<nav>/<main> with single <h1>, returns focus on Escape dialog close, and implements Field Guide Comparison Drawer."
+    fail_criteria: "Overflows mobile/tablet viewports, omits :focus-visible or prefers-reduced-motion, lacks semantic landmarks or focus return, or omits comparison drawer."
+
+  - id: g6_xss_safe_dom_rendering
+    dimension: solution_performance_security
+    binary: true
+    question: "Does site/app.js render untrusted specimen JSON fields via safe DOM APIs (textContent / createElement) without innerHTML string interpolation?"
+    pass_criteria: "site/app.js populates specimen fields using textContent / createElement without injecting unescaped JSON strings into innerHTML or insertAdjacentHTML."
+    fail_criteria: "site/app.js injects JSON fields directly into innerHTML / insertAdjacentHTML templates without escaping."
+
+visual_items:
+  - id: g6_visual_aesthetic_distinction
+    question: "Does the conservatory almanac exhibit cohesive, distinctive visual craft (palette harmony, typography hierarchy, intentional negative space, absence of template clichés) appropriate to botanical glasshouses?"
+  - id: g6_visual_desktop_mobile_balance
+    question: "Are desktop (1440px), tablet (768px), and mobile (375px) views clean, balanced, uncrowded, and visually legible across specimen cards, comparison drawer, telemetry, and detail dialog?"

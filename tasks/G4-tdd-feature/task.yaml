@@ -1,0 +1,42 @@
+task_id: G4-tdd-feature
+archetype: workflow_discipline
+target_skill: test-driven-development
+visual_review: false
+
+jev_items:
+  - id: g4_decimal_only_arithmetic
+    dimension: code_output_maintainability
+    binary: true
+    question: "Does pricing_engine/calculator.py perform all monetary and rate calculations exclusively with Decimal and ROUND_HALF_UP (zero float arithmetic)?"
+    pass_criteria: "All monetary quantities, percentages, prorations, and tax calculations use Decimal and quantize(..., ROUND_HALF_UP) with no float() conversions or floating-point literals."
+    fail_criteria: "calculator.py converts amounts/rates to float or uses floating-point arithmetic."
+
+  - id: g4_graduated_tiers_and_validation
+    dimension: code_output_maintainability
+    binary: true
+    question: "Does calculator.py validate invalid inputs with PricingValidationError (usage, tiers, proration, discounts, credits, credit_cap_pct) and compute GRADUATED and VOLUME tier pricing after deducting included_units?"
+    pass_criteria: "Validates invalid usage, tier sequences, proration bounds, adjustments, discounts, credits, included_units, and credit_cap_pct with PricingValidationError, deducts included_units before tiering, and prices both GRADUATED (progressive brackets) and VOLUME (single matching bracket) modes accurately without mutating inputs."
+    fail_criteria: "Omits PricingValidationError validation checks, ignores included_units or VOLUME mode, uses flat pricing for GRADUATED tiers, or mutates caller inputs."
+
+  - id: g4_discounts_and_fifo_credits
+    dimension: code_output_maintainability
+    binary: true
+    question: "Does calculator.py enforce discount caps/ties and cycle-capped FIFO credits (date/min_subtotal/target_sku/max_discount_amount, credit_cap_pct, expires_on >= as_of)?"
+    pass_criteria: "Enforces eligibility, target_sku, max_discount_amount, highest-savings non-stackable with lexicographic tie-break, stackables, and FIFO credits sorted by (expires_on, credit_id) capped at credit_cap_pct."
+    fail_criteria: "Ignores max_discount_amount or credit_cap_pct, uses expired credits, breaks ties wrong, or allows negative subtotals."
+
+  - id: g4_behavioral_unit_tests
+    dimension: code_output_maintainability
+    binary: true
+    question: "Do candidate tests exercise real behavioral boundaries with hand-derived assertions rather than smoke-only checks or mocking calculator internals?"
+    pass_criteria: "Tests under tests/ assert exact Decimal outputs across GRADUATED/VOLUME modes, included_units, seat segments, adjustments, discount caps/tie-breaks, credit_cap_pct/FIFO, negative taxable adjustments, and validation errors without mocking calculator internals."
+    fail_criteria: "Tests consist only of smoke assertions, omit key boundary interactions, or mock pricing_engine internals."
+
+  - id: g4_clean_modular_implementation
+    dimension: code_output_maintainability
+    binary: true
+    question: "Is calculator.py cleanly decomposed into focused pure helpers (validation, tier pricing, discounts, credits, tax) with clear invariants?"
+    pass_criteria: "Calculation logic is structured into readable single-responsibility helpers with Decimal quantization and explicit edge-case guards."
+    fail_criteria: "Monolithic unfactored function with duplicated rounding logic or unguarded zero-division."
+
+visual_items: []

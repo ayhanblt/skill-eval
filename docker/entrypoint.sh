@@ -15,5 +15,10 @@ mkdir -p "${HOME}"
 export GIT_CONFIG_GLOBAL=/dev/null
 export GIT_CONFIG_NOSYSTEM=1
 
+# Provide pre-baked offline Node dependencies when a task workspace contains package.json
+if [ -f /workspace/package.json ] && [ ! -e /workspace/node_modules ] && [ -d /opt/skilleval-node/node_modules ]; then
+  ln -s /opt/skilleval-node/node_modules /workspace/node_modules
+fi
+
 # Feed prompt via stdin to the Claude Code CLI arguments passed to entrypoint
 exec "$@" < /control/prompt.txt

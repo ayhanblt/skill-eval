@@ -1,0 +1,39 @@
+{
+  "company": "Northstar Cloud Inc.",
+  "fiscal_year": "2026",
+  "active_scenario": "Base",
+  "parameters": {
+    "starting_customers": 120,
+    "base_monthly_arpu": 240,
+    "starting_cash": 180000,
+    "base_monthly_churn": 0.035,
+    "variable_hosting_per_customer": 14,
+    "payment_processing_fee_rate": 0.029,
+    "corporate_tax_rate": 0.21,
+    "minimum_cash_reserve": 100000,
+    "fixed_engineering_payroll": 48000,
+    "fixed_cloud_base": 6500,
+    "fixed_ga": 9000,
+    "support_rep_salary": 5500,
+    "customers_per_support_rep": 150
+  },
+  "monthly_base_new_customers": [
+    {"month": 1, "label": "Jan 2026", "new_customers": 18},
+    {"month": 2, "label": "Feb 2026", "new_customers": 20},
+    {"month": 3, "label": "Mar 2026", "new_customers": 22},
+    {"month": 4, "label": "Apr 2026", "new_customers": 24},
+    {"month": 5, "label": "May 2026", "new_customers": 26},
+    {"month": 6, "label": "Jun 2026", "new_customers": 28},
+    {"month": 7, "label": "Jul 2026", "new_customers": 25},
+    {"month": 8, "label": "Aug 2026", "new_customers": 27},
+    {"month": 9, "label": "Sep 2026", "new_customers": 32},
+    {"month": 10, "label": "Oct 2026", "new_customers": 36},
+    {"month": 11, "label": "Nov 2026", "new_customers": 40},
+    {"month": 12, "label": "Dec 2026", "new_customers": 44}
+  ],
+  "scenarios": {
+    "Base": {"new_cust_mult": 1.0, "churn_mult": 1.0, "arpu_mult": 1.0},
+    "Upside": {"new_cust_mult": 1.25, "churn_mult": 0.85, "arpu_mult": 1.05},
+    "Downside": {"new_cust_mult": 0.7, "churn_mult": 1.35, "arpu_mult": 0.95}
+  }
+}

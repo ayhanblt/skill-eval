@@ -1,0 +1,24 @@
+diff --git a/src/Root.tsx b/src/Root.tsx
+--- a/src/Root.tsx
++++ b/src/Root.tsx
+@@ -1,6 +1,22 @@
+ import React from "react";
+-import { Composition } from "remotion";
++import { AbsoluteFill, Audio, Composition, interpolate, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
++// Monolithic file in Root.tsx: no Zod schema/zColor, no calculateMetadata, no Series/Sequence, CSS transform string, legacy Audio without fade, static caption
++const Monolith: React.FC<any> = () => {
++  const frame = useCurrentFrame();
++  const { fps } = useVideoConfig();
++  const ty = interpolate(frame, [0, fps], [20, 0]);
++  return (
++    <AbsoluteFill style={{ backgroundColor: "#0F172A", color: "#fff" }}>
++      <Audio src={staticFile("narration.wav")} />
++      <h1 style={{ transform: `translateY(${ty}px)`, color: "#38BDF8" }}>Static Title</h1>
++      <div style={{ position: "absolute", bottom: 24 }}>Static Caption</div>
++    </AbsoluteFill>
++  );
++};
+ export const RemotionRoot: React.FC = () => (
+-  <Composition id="MetricStory" component={() => null} durationInFrames={360} fps={30} width={1280} height={720} />
++  <Composition id="MetricStory" component={Monolith} durationInFrames={360} fps={30} width={1280} height={720} />
+ );

@@ -1,0 +1,36 @@
+{
+  "sheetnames": ["Inputs", "Assumptions", "Cash Flow 12M", "Summary"],
+  "formula_count": 252,
+  "formula_errors": [],
+  "unsupported_functions": [],
+  "sample_summary_formulas": {
+    "Summary!B4": "=SUM('Cash Flow 12M'!B9:M9)",
+    "Summary!B5": "=SUM('Cash Flow 12M'!B12:M12)",
+    "Summary!B6": "=IF(B4=0,0,B5/B4)",
+    "Summary!B7": "=SUM('Cash Flow 12M'!B20:M20)",
+    "Summary!B8": "=SUM('Cash Flow 12M'!B21:M21)",
+    "Summary!B9": "=SUM('Cash Flow 12M'!B22:M22)",
+    "Summary!B10": "='Cash Flow 12M'!M24",
+    "Summary!B11": "=MIN('Cash Flow 12M'!B24:M24)",
+    "Summary!B12": "='Cash Flow 12M'!M8",
+    "Summary!B13": "=IF(B11>=Inputs!$B$12,\"OK\",\"WARNING\")"
+  },
+  "inputs_font_colors": ["000000FF"],
+  "inputs_number_formats": ["$#,##0", "#,##0", "0.0%", "@"],
+  "summary_font_colors": ["00000000", "00008000"],
+  "summary_number_formats": ["$#,##0", "#,##0", "0.0%", "@"],
+  "cashflow_font_colors": ["00000000", "00008000"],
+  "cashflow_number_formats": ["$#,##0", "#,##0", "0.0%"],
+  "chart_count": 1,
+  "charts": [
+    {
+      "type": "BarChart",
+      "roundedCorners": false,
+      "legend_overlay": false,
+      "title_overlay": false,
+      "x_axis_delete": false,
+      "y_axis_delete": false
+    }
+  ],
+  "pdf_hash_truncation_count": 0
+}

@@ -1,0 +1,4 @@
+must_fail_gates:
+  - G2_CRITICAL_CORRECTNESS
+max_product_score: 5.0
+note: "Copies discounts dict locally in pricing.py but leaves cache.py shallow-copied and feature_credits shared across tenants."

@@ -1,0 +1,6 @@
+expected:
+  g3_root_cause_fixed_in_cache: pass
+  g3_ledger_atomicity_and_idempotency: pass
+  g3_defense_in_depth_and_reconciler: pass
+  g3_diagnosis_documents_chain: pass
+  g3_regression_tests_isolation: pass

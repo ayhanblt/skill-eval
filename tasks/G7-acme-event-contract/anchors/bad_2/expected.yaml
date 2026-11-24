@@ -1,0 +1,6 @@
+expected:
+  g7_envelope_v2_and_z_utc: pass
+  g7_acme_idempotency_canonical_hash: fail
+  g7_structured_acme_error_envelope: pass
+  g7_zero_pii_audit_every_mutation: fail
+  g7_contract_test_coverage: fail

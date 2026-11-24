@@ -1,0 +1,33 @@
+diff --git a/build_model.py b/build_model.py
+new file mode 100644
+--- /dev/null
++++ b/build_model.py
+@@ -0,0 +1,28 @@
++from openpyxl import Workbook
++from openpyxl.styles import Font
++
++BLUE_INPUT = Font(name="Arial", size=10, color="0000FF")
++BLACK_FORMULA = Font(name="Arial", size=10, color="000000")
++GREEN_LINK = Font(name="Arial", size=10, color="008000")
++
++def build(ws_in, ws_as, ws_cf, ws_sum):
++    ws_in["B4"] = "Base"
++    ws_in["B4"].font = BLUE_INPUT
++    ws_in["B5"] = 120
++    ws_in["B5"].font = BLUE_INPUT
++    ws_in["B5"].number_format = "#,##0"
++    # Uses Excel-365 XLOOKUP which LibreOffice cannot evaluate
++    ws_as["B12"] = "=XLOOKUP(Inputs!$B$4,A5:A7,B5:B7)"
++    ws_as["B12"].font = GREEN_LINK
++    ws_cf["B9"] = "=B8*Assumptions!$B$16"
++    ws_cf["B9"].font = GREEN_LINK
++    ws_cf["B9"].number_format = "$#,##0"
++    ws_cf["B12"] = "=B9-B10-B11"
++    ws_cf["B12"].font = BLACK_FORMULA
++    ws_sum["B4"] = "=SUM('Cash Flow 12M'!B9:M9)"
++    ws_sum["B4"].font = GREEN_LINK
++    ws_sum["B4"].number_format = "$#,##0"
++    ws_sum["B6"] = "=IF(B4=0,0,B5/B4)"
++    ws_sum["B6"].font = BLACK_FORMULA
++    ws_sum["B6"].number_format = "0.0%"
++    # Omitted native openpyxl chart and assumption notes completely

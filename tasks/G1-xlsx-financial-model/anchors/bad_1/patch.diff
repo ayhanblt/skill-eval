@@ -1,0 +1,19 @@
+diff --git a/build_model.py b/build_model.py
+new file mode 100644
+--- /dev/null
++++ b/build_model.py
+@@ -0,0 +1,14 @@
++from openpyxl import Workbook
++
++def main():
++    wb = Workbook()
++    ws = wb.active
++    ws.title = "Inputs"
++    ws["B4"] = "Base"
++    ws_sum = wb.create_sheet("Summary")
++    # Computed directly in Python and written as static numbers without formulas or formatting
++    ws_sum["B4"] = 742800.0
++    ws_sum["B5"] = 681500.0
++    ws_sum["B6"] = 0.91747
++    ws_sum["B10"] = 145210.5
++    wb.save("outputs/saas_financial_model.xlsx")

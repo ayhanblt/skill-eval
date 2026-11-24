@@ -1,6 +1,6 @@
 # Ön Kayıt Protokolü (`PROTOCOL.md`)
 
-> Durum: **Taslak — Aşama 0 Ön Kalibrasyon henüz başlamadı.**
+> Durum: **Faz 5 Hazır — `calibration-v3` tamamlandı (`G2=8.17`, `G3=8.73`, `G4=8.75`; tüm hedef görevler `9.0` tavanının altında, `infra_errors=0`, `grader_error=0`). `G1/G5/G6/G7/G8` `calibration-v2` bulgularıyla birlikte tüm 8 görev kalibre edildi ve 216 koşuluk `main-v1` deney matrisi `artifacts/main-v1/freeze.lock.json` ile donduruldu (bkz. `docs/CHANGELOG_CALIBRATION.md`).**
 > Ana koşular başlamadan önce bu protokol, tüm `specs/`, `skills/`, `tasks/` ve Docker imaj SHA-256 hash’leri `artifacts/<study-id>/freeze.lock.json` içine kilitlenecektir.
 
 ## 1. Ön Kayıtlı Hipotezler

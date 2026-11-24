@@ -19,7 +19,7 @@ from skilleval.config import (
     load_study_spec,
     sha256_file,
 )
-from skilleval.sandbox import docker_image_id, run_isolated_container
+from skilleval.sandbox import check_claude_auth_volume, docker_image_id, run_isolated_container
 from skilleval.schemas import FreezeLock, GradeResult, RunManifest, ScoreCard
 from skilleval.scoring import compute_scorecard
 from skilleval.trace_analyzer import analyze_trace
@@ -31,6 +31,10 @@ class QuotaExhaustedError(RuntimeError):
     def __init__(self, message: str, retry_after_seconds: int = 900) -> None:
         super().__init__(message)
         self.retry_after_seconds = retry_after_seconds
+
+
+class AuthRequiredError(RuntimeError):
+    """Raised when the isolated Claude OAuth volume is unsigned or expired."""
 
 
 def study_dir(root: Path, study_id: str) -> Path:
@@ -140,6 +144,38 @@ def _detect_quota_rejection(session_jsonl: Path, stderr_text: str) -> tuple[bool
     return False, 0
 
 
+def _detect_auth_failure(session_jsonl: Path, stderr_text: str) -> str | None:
+    """Detect unauthenticated/expired Claude CLI session before burning a run slot."""
+    for ev in iter_jsonl(session_jsonl):
+        if ev.get("error") == "authentication_failed":
+            return "authentication_failed"
+        if ev.get("type") == "result" and ev.get("is_error") is True:
+            res_str = str(ev.get("result") or "").strip()
+            low_res = res_str.lower()
+            if any(tok in low_res for tok in ("not logged in", "authentication", "please run /login")):
+                return res_str or "authentication_failed"
+    if "not logged in" in stderr_text.lower():
+        return "Not logged in (stderr)"
+    return None
+
+
+def _extract_result_is_error(session_jsonl: Path) -> tuple[bool, str | None]:
+    """Return `(is_error, result_text)` from the final `result` event in session.jsonl."""
+    final_result: dict[str, Any] | None = None
+    for ev in iter_jsonl(session_jsonl):
+        if ev.get("type") == "result":
+            final_result = ev
+    if final_result is None:
+        return False, None
+    res_msg = str(final_result.get("result") or "").strip() or None
+    return bool(final_result.get("is_error")), res_msg
+
+
+def _models_match_requested(requested: str, observed: list[str]) -> bool:
+    """Allow exact model ID or dated snapshot variants matching `requested`."""
+    return (not observed) or all(m == requested or m.startswith(f"{requested}-") for m in observed)
+
+
 def run_study(
     root: Path,
     study_id: str,
@@ -150,6 +186,11 @@ def run_study(
 ) -> dict[str, int]:
     """Idempotent execution loop across the frozen matrix with optional overnight quota wait."""
     lock = load_or_verify_freeze(root, study_id)
+    logged_in, _auth_info = check_claude_auth_volume(root)
+    if not logged_in:
+        raise AuthRequiredError(
+            "Claude OAuth volume is not signed in. Run `uv run skilleval docker-login` first."
+        )
     sdir = study_dir(root, study_id)
     runs_dir = sdir / "runs"
     runs_dir.mkdir(parents=True, exist_ok=True)
@@ -206,9 +247,21 @@ def run_study(
                         retry_after_seconds=wait_secs,
                     )
 
+                auth_err = _detect_auth_failure(session_jsonl, out.stderr_text)
+                if auth_err:
+                    (attempt_dir / "auth_failed.json").write_text(
+                        json.dumps({"reason": auth_err, "stderr": out.stderr_text[:500]}, indent=2),
+                        encoding="utf-8",
+                    )
+                    raise AuthRequiredError(
+                        f"Claude authentication failed on {row.run_id} ({auth_err}). "
+                        "Run `uv run skilleval docker-login` and resume."
+                    )
+
                 actual_models, tokens, terminal_subtype, provider_cost = extract_session_telemetry(
                     session_jsonl
                 )
+                result_is_error, result_msg = _extract_result_is_error(session_jsonl)
                 est_cost = provider_cost if provider_cost is not None else estimate_api_equivalent_cost(
                     root, row.model, tokens
                 )
@@ -219,12 +272,15 @@ def run_study(
                 elif terminal_subtype == "error_max_turns":
                     status = "budget_exhausted"
                     failure_reason = f"Reached max_turns ({row.max_turns})"
-                elif actual_models and actual_models != [row.model]:
+                elif actual_models and not _models_match_requested(row.model, actual_models):
                     status = "infra_error"
                     failure_reason = f"Model mismatch: requested {row.model}, observed {actual_models}"
-                elif out.exit_code == 0 and terminal_subtype == "success":
+                elif out.exit_code == 0 and terminal_subtype == "success" and not result_is_error:
                     status = "completed"
                     failure_reason = None
+                elif result_is_error:
+                    status = "infra_error"
+                    failure_reason = f"result_error: {(result_msg or terminal_subtype or 'unknown')[:200]}"
                 else:
                     status = "infra_error" if out.exit_code != 0 else "completed"
                     failure_reason = f"exit_code={out.exit_code}, subtype={terminal_subtype}"

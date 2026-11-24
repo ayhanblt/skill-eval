@@ -1,0 +1,5 @@
+must_fail_gates:
+  - G2_CRITICAL_CORRECTNESS
+  - G3_CRITICAL_SAFETY_RULES
+max_product_score: 5.0
+note: "Hardcodes rollback_verified=true without checking migrations/tests, embeds /workspace absolute paths, and leaves .tmp scratch file in bundle."
